@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060b">
+<meta name="description" content="霓虹之巅 NEON ASCENT：一款单文件硬核精准平台跳跃游戏，5 个房间，一次失误就重来。">
+<title>霓虹之巅 · NEON ASCENT</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;height:100%;background:#04050a;color:#e9f7ff;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"PingFang SC","Noto Sans SC",sans-serif;
+    -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;
+  }
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;touch-action:none;padding:6px}
+  #stage.touch{padding:6px 6px 108px}
+  #wrap{
+    position:relative;overflow:hidden;border-radius:10px;background:#03040a;
+    box-shadow:0 0 0 1px rgba(120,225,255,.14),0 24px 70px rgba(0,0,0,.75),0 0 90px rgba(70,190,255,.07);
+  }
+  #game{display:block;width:100%;height:100%}
+  #crt{
+    position:absolute;inset:0;pointer-events:none;opacity:.20;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,.55) 0 1px,rgba(0,0,0,0) 1px 3px);
+    mix-blend-mode:multiply;
+  }
+
+  /* ---------- 触屏按键 ---------- */
+  #pad{
+    position:fixed;left:0;right:0;bottom:0;height:104px;z-index:4;display:none;
+    align-items:center;justify-content:space-between;padding:0 16px 10px;
+    background:linear-gradient(to top,rgba(3,5,11,.98) 30%,rgba(3,5,11,.55) 72%,rgba(3,5,11,0));
+  }
+  #pad.on{display:flex}
+  .grp{display:flex;gap:12px;align-items:center}
+  .tbtn{
+    width:64px;height:64px;border-radius:50%;border:1px solid rgba(110,230,255,.34);
+    background:radial-gradient(circle at 50% 32%,rgba(96,222,255,.18),rgba(10,20,34,.86) 70%);
+    color:#c8f6ff;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 22px rgba(0,0,0,.55),inset 0 0 16px rgba(90,220,255,.12);
+    touch-action:none;transition:transform .06s ease,background .06s ease;
+  }
+  .tbtn.jump{border-color:rgba(150,255,230,.45);color:#b6ffe9}
+  .tbtn.dash{border-color:rgba(255,180,255,.42);color:#ffd2fb}
+  .tbtn.down{transform:scale(.91);background:radial-gradient(circle at 50% 32%,rgba(120,240,255,.42),rgba(10,20,34,.9) 72%)}
+
+  /* ---------- 覆盖层 ---------- */
+  #overlay{position:fixed;inset:0;z-index:8;display:none;place-items:center;overflow:auto;padding:18px 16px 118px;
+    background:radial-gradient(circle at 50% 42%,rgba(10,28,48,.52),rgba(2,3,8,.88) 70%);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  }
+  #overlay.on{display:grid}
+  .card{
+    width:min(430px,94vw);border:1px solid rgba(110,225,255,.22);border-radius:16px;
+    background:linear-gradient(160deg,rgba(15,28,47,.94),rgba(6,10,20,.96));
+    padding:24px 22px 20px;text-align:center;
+    box-shadow:0 26px 70px rgba(0,0,0,.65),inset 0 1px 0 rgba(150,240,255,.12);
+    animation:pop .22s ease-out both;
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+  .brand{
+    font:800 30px/1.05 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;
+    background:linear-gradient(92deg,#7ef9ff,#b48dff 55%,#ff7ac8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand span{
+    background:linear-gradient(92deg,#b48dff,#ff7ac8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .cn{font-size:12px;letter-spacing:.52em;color:#8fb6cc;margin:8px 0 16px;text-indent:.52em}
+  .tag{font-size:12.5px;line-height:1.7;color:#9fc2d8;margin:0 0 18px}
+  .btn{
+    display:block;width:100%;margin:9px 0 0;padding:12px 14px;border-radius:11px;cursor:pointer;
+    border:1px solid rgba(110,225,255,.3);background:rgba(18,36,58,.6);color:#d8f6ff;
+    font-size:14px;font-weight:600;letter-spacing:.06em;
+    transition:transform .07s ease,background .12s ease,border-color .12s ease;
+  }
+  .btn:hover{background:rgba(30,58,88,.7);border-color:rgba(130,240,255,.5)}
+  .btn:active{transform:scale(.985)}
+  .btn.primary{
+    border-color:rgba(120,240,255,.6);color:#eaffff;
+    background:linear-gradient(120deg,rgba(28,150,190,.55),rgba(90,80,190,.5));
+    box-shadow:0 0 22px rgba(80,220,255,.18),inset 0 1px 0 rgba(200,255,255,.2);
+  }
+  .btn.ghost{border-color:rgba(120,160,200,.2);background:rgba(10,18,30,.4);color:#9fb8cc;font-weight:500;font-size:12.5px;padding:9px}
+  .row{display:flex;gap:10px}
+  .row .btn{margin-top:9px}
+  .keys{margin-top:16px;font-size:11.5px;line-height:1.85;color:#7d9cb4;letter-spacing:.02em}
+  .keys b{color:#b9e8ff;font-weight:600}
+  .meta{margin-top:14px;font-size:11.5px;color:#7d9cb4;letter-spacing:.04em}
+  .meta b{color:#c8efff}
+  .lvGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px}
+  .lv{
+    position:relative;text-align:left;padding:10px 10px 9px;border-radius:11px;cursor:pointer;
+    border:1px solid rgba(110,200,240,.2);background:rgba(14,26,42,.6);color:#dff4ff;
+  }
+  .lv:hover{border-color:rgba(120,235,255,.5)}
+  .lv .no{font:700 10px/1 ui-monospace,Menlo,monospace;color:#6f93aa;letter-spacing:.1em}
+  .lv .nm{display:block;font-size:13.5px;font-weight:700;margin:5px 0 3px}
+  .lv .tm{font:600 10.5px/1.3 ui-monospace,Menlo,monospace;color:#8fb8cf}
+  .lv.locked{opacity:.45;cursor:not-allowed}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:1px;background:#44586a}
+  .dot.gold{background:#ffd479;box-shadow:0 0 9px #ffc356}
+  .dot.silver{background:#cfe6f5;box-shadow:0 0 8px #b9dcf0}
+  .dot.bronze{background:#e39b63;box-shadow:0 0 8px #d1844e}
+  .stamp{font:800 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#8be9ff;margin:2px 0 10px}
+  .bigtime{font:800 34px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.03em;color:#ecfeff;
+    text-shadow:0 0 26px rgba(110,240,255,.4);margin:6px 0 4px}
+  .sub{font-size:11.5px;color:#8fb8cf;letter-spacing:.06em}
+  .clearrow{display:flex;justify-content:center;gap:26px;margin:14px 0 4px;font-size:11.5px;color:#9fc2d8}
+  .clearcell{text-align:center}
+  .clearcell b{display:block;font:700 14px/1.5 ui-monospace,Menlo,monospace;color:#dff8ff}
+  .medal{font:700 13px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;padding:5px 10px;border-radius:20px;display:inline-block;margin:8px 0 0}
+  .medal.gold{color:#ffe4a3;border:1px solid rgba(255,205,110,.5);background:rgba(255,190,90,.1)}
+  .medal.silver{color:#e6f4ff;border:1px solid rgba(200,230,245,.45);background:rgba(200,230,245,.08)}
+  .medal.bronze{color:#ffcfae;border:1px solid rgba(220,150,100,.45);background:rgba(220,150,100,.1)}
+  .medal.none{color:#89a3b5;border:1px solid rgba(140,170,190,.25);background:rgba(140,170,190,.06)}
+  .recLine{display:flex;justify-content:space-between;font-size:11.5px;color:#93b6cc;padding:7px 2px;border-bottom:1px dashed rgba(120,170,200,.14)}
+  .recLine b{font:600 11.5px/1 ui-monospace,Menlo,monospace;color:#d6f3ff}
+  .scroll{max-height:38vh;overflow:auto;margin-top:8px}
+  .hintSmall{font-size:11px;color:#67869b;margin-top:14px;line-height:1.7}
+  @media (max-width:380px){ .brand{font-size:25px} .tbtn{width:58px;height:58px} }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap">
+    <canvas id="game" width="1280" height="720"></canvas>
+    <div id="crt"></div>
+  </div>
+
+  <div id="pad">
+    <div class="grp">
+      <button class="tbtn" data-k="left" aria-label="向左">◀</button>
+      <button class="tbtn" data-k="right" aria-label="向右">▶</button>
+    </div>
+    <div class="grp">
+      <button class="tbtn dash" data-k="dash" aria-label="冲刺">⚡</button>
+      <button class="tbtn jump" data-k="jump" aria-label="跳跃">▲</button>
+    </div>
+  </div>
+
+  <div id="overlay"></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ==========================================================================
+   0. 常量
+   ========================================================================== */
+const CW = 640, CH = 360, TS = 20, COLS = 32, ROWS = 18, DPR = 2;
+const P_W = 12, P_H = 14;
+const PAD_H = 104;
+
+const C = {
+  grav: 0.30, maxFall: 8.5,
+  maxRun: 2.8, accG: 0.62, accA: 0.45, fricG: 0.84, fricA: 0.95,
+  jumpV: -5.6, coyote: 6, jumpBuf: 8, cutV: 2.2,
+  wjV: -5.2, wjX: 3.4, wjLock: 8, slide: 1.5,
+  dashV: 6.6, dashT: 10, dashAfter: 12, dashBuf: 7
+};
+
+/* ==========================================================================
+   1. 关卡数据（32×18 网格，单位=格）
+      solids:[x,y,w,h]   实心块
+      spikes:[x,y,w,h,dir] 尖刺，dir=up/down/left/right 表示刺尖朝向
+      start:[x,y] 起始（y 为脚下那格，脚下是实心）
+      goal:[x,y]  终点传送门所在格
+   ========================================================================== */
+/*LEVELS_START*/
+const LEVELS = [
+  {
+    name: '第一缕光', en: 'FIRST LIGHT', hue: 187, par: 10,
+    sub: '熟悉跳跃的落点',
+    start: [2, 15], goal: [30, 7],
+    solids: [[0,16,32,2], [7,14,5,1], [14,12,4,1], [21,10,5,1], [28,8,4,1]],
+    spikes: [[11,15,3,'up'], [23,9,2,'up']],
+    hint: '← → 移动 · Z / 空格 跳跃（松手早跳得低）'
+  },
+  {
+    name: '断裂带', en: 'FAULT LINE', hue: 282, par: 13,
+    sub: '学会用冲刺补距离',
+    start: [1, 15], goal: [30, 12],
+    solids: [[0,16,5,2], [8,15,3,1], [17,15,3,1], [24,14,3,1], [30,13,2,1]],
+    spikes: [[12,10,4,'down'], [20,10,3,'down']],
+    hint: 'X / Shift 冲刺 · 落在平台上会补满一次冲刺'
+  },
+  {
+    name: '攀壁', en: 'THE SHAFT', hue: 152, par: 9,
+    sub: '在两面墙之间向上蹬',
+    start: [13, 15], goal: [13, 2],
+    solids: [[0,16,32,2], [10,1,2,15], [15,1,2,15]],
+    spikes: [],
+    hint: '贴墙下滑时按跳跃＝反向蹬墙 · 蹬墙也会补冲刺'
+  },
+  {
+    name: '针尖', en: 'NEEDLE', hue: 38, par: 15,
+    sub: '低空掠过，别抬头',
+    start: [1, 15], goal: [27, 12],
+    solids: [[0,16,32,2], [3,14,3,1], [9,13,3,1], [15,13,3,1], [21,13,3,1], [26,13,4,1]],
+    spikes: [[6,10,2,'down'], [12,10,2,'down'], [18,10,2,'down'], [24,10,2,'down'], [6,15,26,'up']],
+    hint: '天花板有刺：用横向冲刺代替起跳'
+  },
+  {
+    name: '天顶', en: 'ZENITH', hue: 8, par: 14,
+    sub: '墙蹬 × 冲刺，最后一程',
+    start: [1, 15], goal: [24, 1],
+    solids: [[0,16,32,2], [0,6,1,10], [4,6,2,10], [4,6,8,1], [14,5,2,1], [17,3,2,1], [20,2,6,1]],
+    spikes: [[7,15,25,'up'], [22,2,1,'up']],
+    hint: '爬出竖井后不要停：经中柱一口气冲到终点'
+  }
+];
+/*LEVELS_END*/
+
+/* ==========================================================================
+   2. 工具
+   ========================================================================== */
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const sign = v => v > 0 ? 1 : v < 0 ? -1 : 0;
+function roundRect(g, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+function fmtTime(sec) {
+  if (!isFinite(sec)) return '—';
+  const m = Math.floor(sec / 60), s = sec - m * 60;
+  return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2);
+}
+const isTouch = () => (window.matchMedia ? matchMedia('(pointer: coarse)').matches : false) || navigator.maxTouchPoints > 0;
+
+/* ==========================================================================
+   3. 存档
+   ========================================================================== */
+const SAVE_KEY = 'neon-ascent.save.v1';
+let save = { levels: {}, deaths: 0, clears: 0, muted: false };
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (p && typeof p === 'object') save = Object.assign(save, p);
+  }
+} catch (e) { /* 隐私模式忽略 */ }
+function persist() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+}
+
+/* ==========================================================================
+   4. 音效（WebAudio 合成，无外部资源）
+   ========================================================================== */
+let actx = null, muted = !!save.muted;
+function audioInit() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) actx = new AC();
+  } catch (e) { actx = null; }
+}
+function tone(f0, f1, dur, type, vol) {
+  if (!actx || muted) return;
+  try {
+    const t = actx.currentTime;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch (e) {}
+}
+const SFX = {
+  jump() { tone(330, 560, 0.10, 'square', 0.055); },
+  dash() { tone(760, 180, 0.16, 'sawtooth', 0.06); tone(1200, 400, 0.08, 'triangle', 0.03); },
+  land() { tone(150, 90, 0.07, 'triangle', 0.05); },
+  wall() { tone(520, 300, 0.06, 'square', 0.035); },
+  die() { tone(300, 70, 0.30, 'sawtooth', 0.07); tone(140, 50, 0.34, 'square', 0.035); },
+  win() {
+    tone(523, 523, 0.12, 'triangle', 0.06);
+    setTimeout(() => tone(659, 659, 0.12, 'triangle', 0.06), 100);
+    setTimeout(() => tone(784, 784, 0.14, 'triangle', 0.06), 200);
+    setTimeout(() => tone(1046, 1046, 0.22, 'triangle', 0.07), 300);
+  },
+  ui() { tone(600, 700, 0.05, 'triangle', 0.03); }
+};
+
+/* ==========================================================================
+   5. 画布
+   ========================================================================== */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+const stage = document.getElementById('stage');
+const overlayEl = document.getElementById('overlay');
+const padEl = document.getElementById('pad');
+
+function resize() {
+  const touch = isTouch();
+  stage.classList.toggle('touch', touch);
+  padEl.classList.toggle('on', touch);
+  const padBottom = touch ? PAD_H + 12 : 12;
+  const availW = window.innerWidth - 12;
+  const availH = window.innerHeight - padBottom;
+  let w = Math.min(availW, availH * (CW / CH));
+  const h = w * (CH / CW);
+  wrap.style.width = Math.floor(w) + 'px';
+  wrap.style.height = Math.floor(h) + 'px';
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+/* ==========================================================================
+   6. 游戏状态
+   ========================================================================== */
+const sim = {
+  index: 0, def: null, grid: null, haz: null, stat: null,
+  p: null, prev: { jump: false, dash: false },
+  frames: 0, started: false, dead: false, deathT: 0, won: false, winT: 0, clearShL: false,
+  deaths: 0, shake: 0, flash: 0, freeze: 0,
+  rec: [], particles: [], dust: [], trail: [],
+  ghostFrame: 0
+};
+let state = 'menu';   // menu | levels | play | pause | clear | victory
+
+/* ---------- 网格构建 ---------- */
+function buildGrid(def) {
+  const grid = new Uint8Array(COLS * ROWS);
+  const haz = new Int8Array(COLS * ROWS); // 0 none 1 up 2 down 3 left 4 right
+  def.solids.forEach(([x, y, w, h]) => {
+    for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++)
+      if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS) grid[ty * COLS + tx] = 1;
+  });
+  const HD = { up: 1, down: 2, left: 3, right: 4 };
+  (def.spikes || []).forEach(sp => {
+    // 兼容 [x,y,w,dir] 与 [x,y,w,h,dir] 两种写法
+    let x, y, w, h, dir;
+    if (typeof sp[3] === 'string') { x = sp[0]; y = sp[1]; w = sp[2]; h = 1; dir = sp[3]; }
+    else { x = sp[0]; y = sp[1]; w = sp[2]; h = sp[3]; dir = sp[4]; }
+    for (let ty = y; ty < y + h; ty++) for (let tx = x; tx < x + w; tx++)
+      if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS) haz[ty * COLS + tx] = HD[dir] || 1;
+  });
+  sim.grid = grid;
+  sim.haz = haz;
+}
+const isSolid = (tx, ty) => {
+  if (tx < 0 || tx >= COLS) return true;
+  if (ty < 0) return true;
+  if (ty >= ROWS) return false;
+  return sim.grid[ty * COLS + tx] === 1;
+};
+const hazAt = (tx, ty) => {
+  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 0;
+  return sim.haz[ty * COLS + tx];
+};
+
+/* ---------- 背景 + 地形预渲染 ---------- */
+function buildStatic(def) {
+  const cv = document.createElement('canvas');
+  cv.width = CW * DPR; cv.height = CH * DPR;
+  const g = cv.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const hue = def.hue;
+
+  const bg = g.createLinearGradient(0, 0, 0, CH);
+  bg.addColorStop(0, `hsl(${hue}, 42%, 7%)`);
+  bg.addColorStop(0.42, `hsl(${hue + 120}, 32%, 5%)`);
+  bg.addColorStop(1, '#03040a');
+  g.fillStyle = bg; g.fillRect(0, 0, CW, CH);
+
+  const gl = g.createRadialGradient(CW * 0.72, CH * 0.3, 8, CW * 0.72, CH * 0.3, CH * 0.95);
+  gl.addColorStop(0, `hsla(${hue}, 92%, 58%, .17)`);
+  gl.addColorStop(0.55, `hsla(${hue + 60}, 80%, 50%, .05)`);
+  gl.addColorStop(1, 'hsla(0,0%,0%,0)');
+  g.fillStyle = gl; g.fillRect(0, 0, CW, CH);
+
+  // 星点
+  let seed = 4817;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 110; i++) {
+    const x = rnd() * CW, y = rnd() * CH * 0.82, s = rnd() * 1.5 + 0.35;
+    g.fillStyle = `hsla(${hue + rnd() * 70 - 20}, 95%, ${70 + rnd() * 25}%, ${0.05 + rnd() * 0.16})`;
+    g.fillRect(x, y, s, s);
+  }
+  // 远景剪影
+  for (let i = 0; i < 16; i++) {
+    const bw = 26 + rnd() * 70, bh = 40 + rnd() * 120, bx = rnd() * CW, by = CH - 40 - bh;
+    g.fillStyle = `hsla(${hue + 30}, 50%, 14%, .35)`;
+    g.fillRect(bx, by, bw, bh);
+    g.fillStyle = `hsla(${hue}, 90%, 60%, .10)`;
+    g.fillRect(bx, by, bw, 1.5);
+  }
+
+  // 网格
+  g.lineWidth = 1;
+  g.strokeStyle = `hsla(${hue}, 80%, 62%, .055)`;
+  for (let x = 0; x <= CW; x += TS * 2) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, CH); g.stroke(); }
+  for (let y = 0; y <= CH; y += TS * 2) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(CW, y + .5); g.stroke(); }
+
+  // 地形
+  const base = `hsl(${hue}, 34%, 7%)`;
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    if (!isSolid(tx, ty)) continue;
+    g.fillStyle = base;
+    g.fillRect(tx * TS, ty * TS, TS, TS);
+  }
+  // 露出的边
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    if (!isSolid(tx, ty)) continue;
+    const x = tx * TS, y = ty * TS;
+    if (!isSolid(tx, ty - 1)) {
+      const eg = g.createLinearGradient(0, y, 0, y + 14);
+      eg.addColorStop(0, `hsla(${hue}, 100%, 72%, .95)`);
+      eg.addColorStop(0.35, `hsla(${hue}, 100%, 60%, .38)`);
+      eg.addColorStop(1, `hsla(${hue}, 100%, 55%, 0)`);
+      g.fillStyle = eg; g.fillRect(x, y, TS, 14);
+      g.fillStyle = `hsl(${hue}, 100%, 78%)`; g.fillRect(x, y, TS, 2);
+    }
+    if (!isSolid(tx, ty + 1)) {
+      g.fillStyle = `hsla(${hue}, 60%, 45%, .18)`; g.fillRect(x, y + TS - 2, TS, 2);
+    }
+    if (!isSolid(tx - 1, ty)) { g.fillStyle = `hsla(${hue}, 90%, 62%, .35)`; g.fillRect(x, y, 1.5, TS); }
+    if (!isSolid(tx + 1, ty)) { g.fillStyle = `hsla(${hue}, 90%, 62%, .35)`; g.fillRect(x + TS - 1.5, y, 1.5, TS); }
+  }
+
+  // 尖刺
+  const spikeFill = `hsl(${hue}, 92%, 66%)`;
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    const d = hazAt(tx, ty);
+    if (!d) continue;
+    const x = tx * TS, y = ty * TS;
+    const spikes = 3;
+    const grd = g.createLinearGradient(x, y, x, y + TS);
+    grd.addColorStop(0, `hsla(${hue}, 100%, 78%, .95)`);
+    grd.addColorStop(1, `hsla(${hue}, 90%, 45%, .55)`);
+    g.fillStyle = grd;
+    for (let i = 0; i < spikes; i++) {
+      const f = i / spikes, f2 = (i + 1) / spikes;
+      g.beginPath();
+      if (d === 1) { // up
+        g.moveTo(x + f * TS, y + TS); g.lineTo(x + (f + 0.5 / spikes) * TS, y + 3); g.lineTo(x + f2 * TS, y + TS);
+      } else if (d === 2) { // down
+        g.moveTo(x + f * TS, y); g.lineTo(x + (f + 0.5 / spikes) * TS, y + TS - 3); g.lineTo(x + f2 * TS, y);
+      } else if (d === 3) { // left
+        g.moveTo(x + TS, y + f * TS); g.lineTo(x + 3, y + (f + 0.5 / spikes) * TS); g.lineTo(x + TS, y + f2 * TS);
+      } else { // right
+        g.moveTo(x, y + f * TS); g.lineTo(x + TS - 3, y + (f + 0.5 / spikes) * TS); g.lineTo(x, y + f2 * TS);
+      }
+      g.closePath(); g.fill();
+    }
+    g.fillStyle = `hsla(${hue}, 100%, 85%, .18)`;
+    g.fillRect(x, y, TS, TS);
+  }
+
+  sim.stat = cv;
+}
+
+/* ==========================================================================
+   7. 玩家 & 物理
+   ========================================================================== */
+function resetPlayer() {
+  const s = sim.def.start;
+  sim.p = {
+    x: s[0] * TS + (TS - P_W) / 2, y: (s[1] + 1) * TS - P_H,
+    vx: 0, vy: 0, facing: 1, grounded: true, onWall: 0,
+    dashLeft: 1, dashing: 0, dashBuf: 0, jumpBuf: 0, coyote: C.coyote,
+    lockX: 0, jumpCut: false, dashAfter: 0, dashDX: 1, dashDY: 0,
+    sx: 1, sy: 1, trailT: 0
+  };
+  sim.trail.length = 0;
+}
+function respawn() {
+  resetPlayer();
+  sim.dead = false; sim.deathT = 0;
+  sim.prev = { jump: false, dash: false };
+}
+function startLevel(i) {
+  sim.index = i;
+  sim.def = LEVELS[i];
+  buildGrid(sim.def);
+  buildStatic(sim.def);
+  resetPlayer();
+  sim.frames = 0; sim.started = false;
+  sim.dead = false; sim.won = false; sim.winT = 0; sim.deaths = 0;
+  sim.prev = { jump: false, dash: false };
+  sim.rec = []; sim.particles.length = 0; sim.shake = 0; sim.flash = 0; sim.freeze = 0;
+  sim.clearShL = false;
+  sim.ghostFrame = 0;
+  initDust();
+  state = 'play';
+  hideOverlay();
+  updatePadVisibility();
+}
+function initDust() {
+  sim.dust = [];
+  for (let i = 0; i < 34; i++) {
+    sim.dust.push({
+      x: Math.random() * CW, y: Math.random() * CH,
+      s: 0.6 + Math.random() * 1.4, v: 0.08 + Math.random() * 0.25,
+      a: 0.05 + Math.random() * 0.14, ph: Math.random() * 6.28
+    });
+  }
+}
+
+function collideSolid(x, y, w, h) {
+  const x0 = Math.floor(x / TS), x1 = Math.floor((x + w - 0.01) / TS);
+  const y0 = Math.floor(y / TS), y1 = Math.floor((y + h - 0.01) / TS);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++)
+    if (isSolid(tx, ty)) return true;
+  return false;
+}
+function hazardHit(x, y, w, h) {
+  const px = x + 2, py = y + 2, pw = w - 4, ph = h - 4;
+  const x0 = Math.floor(px / TS), x1 = Math.floor((px + pw) / TS);
+  const y0 = Math.floor(py / TS), y1 = Math.floor((py + ph) / TS);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    const d = hazAt(tx, ty);
+    if (!d) continue;
+    // 判定区比视觉小一圈，容错更友好
+    let rx = tx * TS, ry = ty * TS, rw = TS, rh = TS;
+    if (d === 1) { ry += 7; rh -= 7; rx += 4; rw -= 8; }
+    else if (d === 2) { rh -= 7; rx += 4; rw -= 8; }
+    else if (d === 3) { rw -= 7; ry += 4; rh -= 8; }
+    else { rx += 7; rw -= 7; ry += 4; rh -= 8; }
+    if (px < rx + rw && px + pw > rx && py < ry + rh && py + ph > ry) return true;
+  }
+  return false;
+}
+
+/* ---------- 粒子 ---------- */
+function spawn(x, y, n, opt) {
+  opt = opt || {};
+  for (let i = 0; i < n; i++) {
+    if (sim.particles.length > 260) break;
+    const a = opt.ang !== undefined ? opt.ang + (Math.random() - 0.5) * (opt.spread || 1.6) : Math.random() * 6.283;
+    const sp = (opt.sp || 1.5) * (0.4 + Math.random() * 1.1);
+    sim.particles.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (opt.up || 0),
+      life: opt.life || 26, max: opt.life || 26,
+      size: (opt.size || 2) * (0.6 + Math.random() * 0.9),
+      col: opt.col || '#7df4ff', g: opt.g === undefined ? 0.06 : opt.g,
+      kind: opt.kind || 'dot', rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.25
+    });
+  }
+}
+function updateParticles() {
+  for (let i = sim.particles.length - 1; i >= 0; i--) {
+    const q = sim.particles[i];
+    q.x += q.vx; q.y += q.vy; q.vy += q.g; q.vx *= 0.97; q.rot += q.vr;
+    q.life--;
+    if (q.life <= 0) sim.particles.splice(i, 1);
+  }
+  for (const d of sim.dust) {
+    d.y -= d.v; d.ph += 0.02;
+    d.x += Math.sin(d.ph) * 0.12;
+    if (d.y < -4) { d.y = CH + 4; d.x = Math.random() * CW; }
+  }
+}
+
+/* ---------- 死亡 / 通关 ---------- */
+function die() {
+  if (sim.dead || sim.won) return;
+  sim.dead = true; sim.deathT = 0; sim.deaths++;
+  save.deaths++; persist();
+  sim.shake = 11; sim.flash = 0.9;
+  const p = sim.p;
+  spawn(p.x + P_W / 2, p.y + P_H / 2, 26, { sp: 4.2, size: 2.6, life: 34, col: '#ff86c8', g: 0.14 });
+  spawn(p.x + P_W / 2, p.y + P_H / 2, 12, { sp: 2.4, size: 3.4, life: 26, col: '#ffffff', g: 0.1 });
+  SFX.die();
+}
+function win() {
+  if (sim.won || sim.dead) return;
+  sim.won = true; sim.winT = 0; sim.shake = 4; sim.flash = 0.5;
+  const t = sim.frames / 60;
+  const gx = (sim.def.goal[0] + 0.5) * TS, gy = (sim.def.goal[1] + 0.5) * TS;
+  spawn(gx, gy, 34, { sp: 3.4, size: 2.4, life: 42, col: '#9ef8ff', g: 0.05 });
+  spawn(gx, gy, 18, { sp: 2.2, size: 3, life: 40, col: '#ffd88a', g: 0.04, kind: 'confetti' });
+
+  const rec = save.levels[sim.index] || {};
+  const isPB = rec.best === undefined || t < rec.best;
+  if (isPB) {
+    rec.best = t;
+    rec.ghost = sim.rec.slice(-1400);
+    rec.par = sim.def.par;
+  }
+  rec.runs = (rec.runs || 0) + 1;
+  rec.last = t;
+  rec.deaths = sim.deaths;
+  save.levels[sim.index] = rec;
+  save.clears = Object.keys(save.levels).length;
+  persist();
+  sim.newPB = isPB;
+  SFX.win();
+}
+
+function stepSim(inp) {
+  // 粒子/尘埃始终流动
+  updateParticles();
+  if (sim.shake > 0) sim.shake *= 0.86;
+  if (sim.shake < 0.2) sim.shake = 0;
+  if (sim.flash > 0) sim.flash = Math.max(0, sim.flash - 0.035);
+
+  if (sim.freeze > 0) { sim.freeze--; return; }
+
+  if (sim.dead) {
+    sim.deathT++;
+    if (sim.deathT >= 17) respawn();
+    return;
+  }
+  if (sim.won) {
+    sim.winT++;
+    if (sim.winT === 3) SFX.win();
+    if (sim.winT > 22 && !sim.clearShL) { sim.clearShL = true; showClear(); }
+    return;
+  }
+
+  if (!sim.started) {
+    const any = inp.left || inp.right || inp.jump || inp.dash || inp.up || inp.down;
+    if (!any) { sim.prev = { jump: !!inp.jump, dash: !!inp.dash }; return; }
+    sim.started = true;
+  }
+
+  const p = sim.p;
+  const edgeJ = inp.jump && !sim.prev.jump;
+  const edgeD = inp.dash && !sim.prev.dash;
+  sim.prev = { jump: !!inp.jump, dash: !!inp.dash };
+
+  if (edgeJ) { p.jumpBuf = C.jumpBuf; p.jumpCut = false; }
+  if (edgeD) { p.dashBuf = C.dashBuf; }
+
+  const ax = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+  const ay = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+
+  // ---- 冲刺起手 ----
+  if (p.dashBuf > 0 && p.dashLeft > 0 && p.dashing === 0) {
+    let dx = ax, dy = ay;
+    if (!dx && !dy) { dx = p.facing; dy = 0; }
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    p.dashing = C.dashT; p.dashLeft = 0; p.dashBuf = 0;
+    p.vx = dx * C.dashV; p.vy = dy * C.dashV;
+    p.dashDX = dx; p.dashDY = dy;
+    p.sx = 1.28; p.sy = 0.76;
+    sim.shake = Math.max(sim.shake, 3.5);
+    spawn(p.x + P_W / 2, p.y + P_H / 2, 12, {
+      sp: 3.6, size: 2.2, life: 22, col: '#ff9ef0', g: 0.02,
+      ang: Math.atan2(-dy, -dx), spread: 1.0
+    });
+    SFX.dash();
+  }
+  if (p.dashBuf > 0) p.dashBuf--;
+
+  // ---- 跳跃 / 蹬墙 ----
+  if (p.jumpBuf > 0 && p.dashing === 0) {
+    if (p.coyote > 0) {
+      p.vy = C.jumpV; p.coyote = 0; p.jumpBuf = 0; p.jumpCut = false;
+      p.sx = 0.82; p.sy = 1.2;
+      spawn(p.x + P_W / 2, p.y + P_H, 5, { sp: 1.6, size: 1.8, life: 18, col: '#8ef6ff', up: 0.4, ang: -1.57, spread: 1.9 });
+      SFX.jump();
+    } else if (p.onWall !== 0) {
+      const w = p.onWall;
+      p.vy = C.wjV; p.vx = -w * C.wjX; p.lockX = C.wjLock;
+      p.coyote = 0; p.jumpBuf = 0; p.jumpCut = false;
+      p.facing = -w; p.dashLeft = 1;
+      p.sx = 1.22; p.sy = 0.84;
+      spawn(p.x + (w > 0 ? P_W : 0), p.y + P_H / 2, 7, { sp: 2.2, size: 2, life: 20, col: '#c7a8ff', g: 0.05 });
+      SFX.wall();
+    }
+  }
+  if (p.jumpBuf > 0) p.jumpBuf--;
+  if (p.coyote > 0) p.coyote--;
+  if (p.lockX > 0) p.lockX--;
+  if (p.dashAfter > 0) p.dashAfter--;
+
+  if (p.dashing > 0) {
+    p.dashing--;
+    if (p.dashing === 0) {
+      p.vx *= 0.86; p.vy *= 0.34; p.dashAfter = C.dashAfter;
+    }
+  } else {
+    // 水平控制
+    if (p.lockX === 0) {
+      if (ax !== 0) {
+        p.facing = ax;
+        p.vx += ax * (p.grounded ? C.accG : C.accA);
+      } else {
+        p.vx *= p.grounded ? C.fricG : C.fricA;
+        if (Math.abs(p.vx) < 0.02) p.vx = 0;
+      }
+      const cap = p.dashAfter > 0 ? C.maxRun * 1.55 : C.maxRun;
+      p.vx = clamp(p.vx, -cap, cap);
+    }
+
+    // 重力
+    p.vy += C.grav;
+
+    // 贴墙减速
+    if (p.onWall !== 0 && p.vy > 0 && (p.onWall === 1 ? ax > 0 : ax < 0)) {
+      if (p.vy > C.slide) p.vy = C.slide;
+      if (Math.random() < 0.22) {
+        spawn(p.x + (p.onWall > 0 ? P_W : 0), p.y + 4 + Math.random() * 8, 1, {
+          sp: 0.7, size: 1.6, life: 16, col: '#a8c8ff', g: -0.02
+        });
+      }
+    }
+    if (p.vy > C.maxFall) p.vy = C.maxFall;
+
+    // 松手截断上升
+    if (!inp.jump && !p.jumpCut && p.vy < -C.cutV) { p.vy = -C.cutV; p.jumpCut = true; }
+  }
+
+  // ---- 位移动（先 X 后 Y，逐轴二分回退） ----
+  p.grounded = false;
+
+  if (p.vx !== 0) {
+    const nx = p.x + p.vx;
+    if (!collideSolid(nx, p.y, P_W, P_H)) p.x = nx;
+    else {
+      let lo = 0, hi = p.vx;
+      for (let i = 0; i < 6; i++) {
+        const mid = (lo + hi) / 2;
+        if (!collideSolid(p.x + mid, p.y, P_W, P_H)) lo = mid; else hi = mid;
+      }
+      p.x += lo; p.vx = 0;
+    }
+  }
+  if (p.vy !== 0) {
+    const ny = p.y + p.vy;
+    if (!collideSolid(p.x, ny, P_W, P_H)) p.y = ny;
+    else {
+      let lo = 0, hi = p.vy;
+      for (let i = 0; i < 6; i++) {
+        const mid = (lo + hi) / 2;
+        if (!collideSolid(p.x, p.y + mid, P_W, P_H)) lo = mid; else hi = mid;
+      }
+      p.y += lo;
+      if (p.vy > 0) {
+        p.grounded = true;
+        if (p.vy > 2.2) {
+          p.sx = 1.22; p.sy = 0.82;
+          spawn(p.x + P_W / 2, p.y + P_H, Math.min(7, 2 + Math.floor(p.vy)), { sp: 1.5, size: 1.8, life: 16, col: '#9fe9ff', ang: -1.57, spread: 2.4, up: 0.2 });
+          SFX.land();
+        }
+      }
+      p.vy = 0;
+    }
+  }
+
+  // 地面 / 墙贴合检测
+  if (collideSolid(p.x + 1, p.y + 1.2, P_W - 2, P_H)) p.grounded = true;
+  p.onWall = 0;
+  if (collideSolid(p.x + 1.2, p.y + 3, P_W, P_H - 7)) p.onWall = 1;
+  else if (collideSolid(p.x - 1.2, p.y + 3, P_W, P_H - 7)) p.onWall = -1;
+
+  // 缓冲与补冲刺
+  if (p.grounded) {
+    p.coyote = C.coyote;
+    if (p.dashAfter === 0) p.dashLeft = 1;
+  } else if (p.onWall !== 0 && p.dashing === 0 && p.dashAfter === 0) {
+    p.dashLeft = 1;
+  }
+
+  // 挤压回弹
+  p.sx += (1 - p.sx) * 0.22;
+  p.sy += (1 - p.sy) * 0.22;
+
+  // 拖影
+  p.trailT++;
+  if (p.trailT % 2 === 0) {
+    sim.trail.push({ x: p.x, y: p.y, life: 18 });
+    if (sim.trail.length > 14) sim.trail.shift();
+  }
+  for (let i = sim.trail.length - 1; i >= 0; i--) {
+    if ((sim.trail[i].life--) <= 0) sim.trail.splice(i, 1);
+  }
+
+  // ---- 危险判定 ----
+  if (hazardHit(p.x, p.y, P_W, P_H)) { die(); return; }
+  if (p.y > CH + 40) { die(); return; }
+
+  // ---- 终点 ----
+  const gl = sim.def.goal;
+  const gx = gl[0] * TS + 2, gy = gl[1] * TS + 2, gw = TS - 4, gh = TS - 4;
+  if (p.x < gx + gw && p.x + P_W > gx && p.y < gy + gh && p.y + P_H > gy) { win(); return; }
+
+  // ---- 计时 / 残影记录 ----
+  sim.frames++;
+  if (sim.frames % 2 === 0 && sim.rec.length < 1600) {
+    sim.rec.push([sim.frames, Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]);
+  }
+}
+
+/* ==========================================================================
+   8. 渲染
+   ========================================================================== */
+function drawPlayerAt(g, cx, cy, alpha, tint, sx, sy) {
+  const w = P_W - 2, h = P_H;
+  g.save();
+  g.globalAlpha = alpha;
+  g.translate(cx, cy);
+  g.scale(sx || 1, sy || 1);
+  g.shadowColor = tint || 'rgba(110,240,255,.9)';
+  g.shadowBlur = 16;
+  const grd = g.createLinearGradient(0, -h / 2, 0, h / 2);
+  grd.addColorStop(0, tint ? tint : '#dcfeff');
+  grd.addColorStop(0.55, '#63e6ff');
+  grd.addColorStop(1, '#1ea6d8');
+  g.fillStyle = grd;
+  roundRect(g, -w / 2, -h / 2, w, h, 4);
+  g.fill();
+  g.shadowBlur = 0;
+  // 面罩
+  g.fillStyle = 'rgba(255,255,255,.85)';
+  roundRect(g, -1.5, -h / 2 + 3, 5.5, 3, 1.4);
+  g.fill();
+  g.restore();
+}
+function drawGhost(g) {
+  const rec = save.levels[sim.index];
+  if (!rec || !rec.ghost || !rec.ghost.length) return;
+  const gh = rec.ghost, f = sim.frames;
+  if (f > gh[gh.length - 1][0] + 240) return;
+  let lo = 0, hi = gh.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (gh[mid][0] <= f) lo = mid; else hi = mid - 1;
+  }
+  const a = gh[lo], b = gh[Math.min(lo + 1, gh.length - 1)];
+  const k = b[0] > a[0] ? clamp((f - a[0]) / (b[0] - a[0]), 0, 1) : 0;
+  const x = a[1] + (b[1] - a[1]) * k + P_W / 2;
+  const y = a[2] + (b[2] - a[2]) * k + P_H / 2;
+  drawPlayerAt(g, x, y, 0.30, 'rgba(160,190,255,1)', 1, 1);
+}
+function render(now) {
+  const g = ctx;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.clearRect(0, 0, CW, CH);
+  if (!sim.def) return;
+
+  const sh = sim.shake;
+  if (sh > 0) g.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+
+  // 背景
+  if (sim.stat) g.drawImage(sim.stat, 0, 0, CW, CH);
+
+  // 尘埃
+  for (const d of sim.dust) {
+    g.fillStyle = `hsla(${sim.def.hue}, 90%, 78%, ${d.a})`;
+    g.fillRect(d.x, d.y, d.s, d.s);
+  }
+
+  // 终点门
+  const gl = sim.def.goal, hue = sim.def.hue;
+  const gx = (gl[0] + 0.5) * TS, gy = (gl[1] + 0.5) * TS;
+  const t = now * 0.001;
+  const pulse = Math.sin(t * 2.6) * 0.5 + 0.5;
+  g.save();
+  g.translate(gx, gy);
+  g.shadowColor = `hsla(${hue},100%,70%,.95)`;
+  g.shadowBlur = 16 + pulse * 12;
+  const core = g.createRadialGradient(0, 0, 1, 0, 0, 13);
+  core.addColorStop(0, 'rgba(255,255,255,.95)');
+  core.addColorStop(0.4, `hsla(${hue},100%,70%,.85)`);
+  core.addColorStop(1, `hsla(${hue},100%,55%,0)`);
+  g.fillStyle = core;
+  g.beginPath(); g.arc(0, 0, 13, 0, 6.283); g.fill();
+  g.strokeStyle = `hsla(${hue},100%,80%,.9)`;
+  g.lineWidth = 1.5;
+  g.beginPath(); g.arc(0, 0, 8 + pulse * 3, 0, 6.283); g.stroke();
+  g.restore();
+
+  // 残影
+  drawGhost(g);
+
+  // 拖影
+  for (const tr of sim.trail) {
+    const a = tr.life / 18;
+    drawPlayerAt(g, tr.x + P_W / 2, tr.y + P_H / 2, a * 0.28, 'rgba(90,220,255,1)', 1, 1);
+  }
+
+  // 粒子（后层）
+  for (const q of sim.particles) {
+    const a = Math.max(0, q.life / q.max);
+    g.globalAlpha = a;
+    if (q.kind === 'confetti') {
+      g.save(); g.translate(q.x, q.y); g.rotate(q.rot);
+      g.fillStyle = q.col; g.fillRect(-q.size, -q.size * 0.6, q.size * 2, q.size * 1.2);
+      g.restore();
+    } else {
+      g.fillStyle = q.col;
+      g.beginPath(); g.arc(q.x, q.y, q.size * (0.4 + a * 0.6), 0, 6.283); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+
+  // 玩家
+  const p = sim.p;
+  if (!sim.dead) {
+    // 冲刺可用指示
+    if (!sim.won) {
+      const dx2 = p.x + P_W / 2, dy2 = p.y - 7;
+      g.save();
+      g.globalAlpha = 0.75;
+      g.fillStyle = p.dashLeft > 0 ? '#ff9ef0' : 'rgba(120,150,175,.5)';
+      g.shadowColor = p.dashLeft > 0 ? 'rgba(255,140,240,.9)' : 'transparent';
+      g.shadowBlur = p.dashLeft > 0 ? 8 : 0;
+      g.beginPath(); g.arc(dx2, dy2, 2.1, 0, 6.283); g.fill();
+      g.restore();
+    }
+    drawPlayerAt(g, p.x + P_W / 2, p.y + P_H / 2, 1, null, p.sx, p.sy);
+  }
+
+  // 粒子（前层闪光）
+  g.globalAlpha = 1;
+
+  // 关卡名开场
+  if (sim.frames < 110 && !sim.dead) {
+    const k = sim.frames < 20 ? sim.frames / 20 : (sim.frames > 80 ? Math.max(0, (110 - sim.frames) / 30) : 1);
+    g.save();
+    g.globalAlpha = k;
+    g.textAlign = 'center';
+    g.font = '800 26px ui-monospace, Menlo, monospace';
+    g.fillStyle = `hsla(${hue}, 100%, 82%, .95)`;
+    g.shadowColor = `hsla(${hue},100%,60%,.9)`; g.shadowBlur = 18;
+    g.fillText(sim.def.en, CW / 2, CH / 2 - 20);
+    g.shadowBlur = 0;
+    g.font = '600 13px -apple-system, "PingFang SC", sans-serif';
+    g.fillStyle = 'rgba(220,245,255,.7)';
+    g.fillText(sim.def.name, CW / 2, CH / 2 + 4);
+    g.restore();
+  }
+
+  // HUD
+  if (state !== 'menu' && state !== 'levels') drawHUD(g, hue);
+
+  // 死亡闪白
+  if (sim.flash > 0) {
+    g.fillStyle = `rgba(255,120,190,${sim.flash * 0.35})`;
+    g.fillRect(-20, -20, CW + 40, CH + 40);
+  }
+
+  // 暗角
+  const vg = g.createRadialGradient(CW / 2, CH / 2, CH * 0.42, CW / 2, CH / 2, CH * 0.95);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  g.fillStyle = vg; g.fillRect(0, 0, CW, CH);
+}
+
+function drawHUD(g, hue) {
+  const idx = sim.index;
+  g.save();
+  g.textAlign = 'left';
+  g.font = '700 10px ui-monospace, Menlo, monospace';
+  g.fillStyle = 'rgba(175,220,240,.6)';
+  g.fillText('ROOM ' + String(idx + 1).padStart(2, '0') + ' / ' + String(LEVELS.length).padStart(2, '0'), 14, 20);
+
+  const tm = fmtTime(sim.frames / 60);
+  g.font = '800 22px ui-monospace, Menlo, monospace';
+  g.fillStyle = '#eafdff';
+  g.shadowColor = `hsla(${hue},100%,65%,.65)`; g.shadowBlur = 12;
+  g.fillText(tm, 13, 45);
+  g.shadowBlur = 0;
+
+  g.textAlign = 'right';
+  g.font = '700 10px ui-monospace, Menlo, monospace';
+  g.fillStyle = 'rgba(175,220,240,.55)';
+  g.fillText('DEATHS', CW - 14, 20);
+  g.font = '800 15px ui-monospace, Menlo, monospace';
+  g.fillStyle = sim.deaths > 0 ? '#ff9ecb' : 'rgba(200,235,250,.7)';
+  g.fillText(String(sim.deaths).padStart(2, '0'), CW - 14, 38);
+
+  const rec = save.levels[idx];
+  g.fillStyle = 'rgba(150,195,220,.45)';
+  g.font = '600 9.5px ui-monospace, Menlo, monospace';
+  g.fillText(rec && rec.best !== undefined ? 'BEST ' + fmtTime(rec.best) : 'BEST —', CW - 14, 54);
+
+  // 提示
+  if (sim.frames < 330 && !sim.dead) {
+    const a = sim.frames < 60 ? sim.frames / 60 : (sim.frames > 260 ? (330 - sim.frames) / 70 : 1);
+    g.textAlign = 'center';
+    g.globalAlpha = clamp(a, 0, 1);
+    g.font = '600 11.5px -apple-system, "PingFang SC", sans-serif';
+    g.fillStyle = 'rgba(210,240,255,.72)';
+    g.fillText(sim.def.hint, CW / 2, CH - 16);
+    g.globalAlpha = 1;
+  }
+  g.restore();
+}
+
+/* ==========================================================================
+   9. 输入
+   ========================================================================== */
+const held = { left: 0, right: 0, up: 0, down: 0, jump: 0, dash: 0 };
+const CODEMAP = {
+  ArrowLeft: 'left', KeyA: 'left',
+  ArrowRight: 'right', KeyD: 'right',
+  ArrowUp: 'up', KeyW: 'up',
+  ArrowDown: 'down', KeyS: 'down',
+  KeyZ: 'jump', Space: 'jump', KeyK: 'jump', Enter: 'jump',
+  KeyX: 'dash', ShiftLeft: 'dash', ShiftRight: 'dash', KeyJ: 'dash'
+};
+const pressed = new Set();
+function syncKeys() {
+  held.left = held.right = held.up = held.down = held.jump = held.dash = 0;
+  for (const code of pressed) {
+    const k = CODEMAP[code];
+    if (k) held[k] = 1;
+  }
+}
+window.addEventListener('keydown', e => {
+  const k = CODEMAP[e.code];
+  if (k) { pressed.add(e.code); syncKeys(); audioInit(); if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault(); }
+  if (e.code === 'KeyR' && state === 'play') { startLevel(sim.index); SFX.ui(); }
+  if ((e.code === 'KeyP' || e.code === 'Escape')) {
+    if (state === 'play') pauseGame();
+    else if (state === 'pause') resumeGame();
+  }
+  if (e.code === 'KeyM') toggleMute();
+});
+window.addEventListener('keyup', e => {
+  if (CODEMAP[e.code]) { pressed.delete(e.code); syncKeys(); }
+});
+window.addEventListener('blur', () => { pressed.clear(); syncKeys(); });
+
+document.querySelectorAll('.tbtn').forEach(btn => {
+  const k = btn.dataset.k;
+  const down = e => {
+    e.preventDefault(); audioInit();
+    try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+    held[k] = 1; btn.classList.add('down');
+  };
+  const up = () => { held[k] = 0; btn.classList.remove('down'); };
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('lostpointercapture', up);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+document.addEventListener('touchmove', e => {
+  if (e.target.closest('#overlay')) return;
+  e.preventDefault();
+}, { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+function updatePadVisibility() {
+  padEl.classList.toggle('on', isTouch() && state === 'play');
+}
+
+/* ==========================================================================
+   10. UI
+   ========================================================================== */
+function medalOf(t, par) {
+  if (t === undefined) return 'none';
+  if (t <= par) return 'gold';
+  if (t <= par * 1.35) return 'silver';
+  if (t <= par * 1.9) return 'bronze';
+  return 'none';
+}
+const MEDAL_TXT = { gold: '黄金 ★', silver: '白银 ◆', bronze: '青铜 ▲', none: '未评级' };
+const MEDAL_EN = { gold: 'GOLD', silver: 'SILVER', bronze: 'BRONZE', none: 'CLEARED' };
+
+function overlayOn(html) {
+  overlayEl.innerHTML = html;
+  overlayEl.classList.add('on');
+  updatePadVisibility();
+}
+function hideOverlay() {
+  overlayEl.classList.remove('on');
+  overlayEl.innerHTML = '';
+  updatePadVisibility();
+}
+function unlocked(i) {
+  if (i === 0) return true;
+  const prev = save.levels[i - 1];
+  return !!(prev && prev.best !== undefined);
+}
+function clearedCount() {
+  return LEVELS.reduce((n, _, i) => n + (save.levels[i] && save.levels[i].best !== undefined ? 1 : 0), 0);
+}
+
+function showMenu() {
+  state = 'menu';
+  const n = clearedCount();
+  overlayOn(`
+    <div class="card">
+      <div class="brand">NEON<span>ASCENT</span></div>
+      <div class="cn">霓虹之巅</div>
+      <p class="tag">5 个房间 · 一次失误就重来<br>每个房间都会留下你的最佳残影</p>
+      <button class="btn primary" data-act="play">${n >= LEVELS.length ? '再次登顶' : '开始攀爬'}</button>
+      <button class="btn" data-act="levels">选择房间</button>
+      <div class="row">
+        <button class="btn ghost" data-act="mute">${muted ? '音效：关' : '音效：开'}</button>
+        <button class="btn ghost" data-act="reset">清除记录</button>
+      </div>
+      <div class="meta">总死亡 <b>${save.deaths}</b> · 已通过 <b>${n}/${LEVELS.length}</b></div>
+      <div class="keys">
+        ${isTouch()
+          ? '<b>◀ ▶</b> 移动 · <b>▲</b> 跳跃 · <b>⚡</b> 冲刺<br>长按跳跃可跳得更高'
+          : '<b>← → / A D</b> 移动 · <b>Z / 空格</b> 跳跃 · <b>X / Shift</b> 冲刺<br><b>R</b> 重开 · <b>P / Esc</b> 暂停 · <b>M</b> 静音'}
+      </div>
+    </div>`);
+}
+function showLevels() {
+  state = 'levels';
+  const cards = LEVELS.map((l, i) => {
+    const rec = save.levels[i] || {};
+    const ok = unlocked(i);
+    const m = medalOf(rec.best, l.par);
+    return `<button class="lv ${ok ? '' : 'locked'}" ${ok ? `data-act="level" data-i="${i}"` : 'disabled'}>
+      <span class="no">ROOM ${String(i + 1).padStart(2, '0')} ${ok ? '' : '· 未解锁'}</span>
+      <span class="nm">${l.name}</span>
+      <span class="tm"><span class="dot ${m}"></span>${rec.best !== undefined ? fmtTime(rec.best) : '—'} <span style="opacity:.45">/ 目标 ${fmtTime(l.par)}</span></span>
+    </button>`;
+  }).join('');
+  overlayOn(`
+    <div class="card">
+      <div class="brand" style="font-size:22px">SELECT ROOM</div>
+      <div class="cn" style="margin:8px 0 16px">选择房间</div>
+      <div class="lvGrid">${cards}</div>
+      <div class="hintSmall">通关一个房间才会解锁下一个。黄金 = 低于目标时间。</div>
+      <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
+    </div>`);
+}
+function pauseGame() {
+  if (state !== 'play') return;
+  state = 'pause';
+  overlayOn(`
+    <div class="card">
+      <div class="stamp">PAUSED</div>
+      <div class="bigtime" style="font-size:24px">${fmtTime(sim.frames / 60)}</div>
+      <div class="sub">${sim.def.name} · 死亡 ${sim.deaths}</div>
+      <button class="btn primary" data-act="resume">继续</button>
+      <button class="btn" data-act="retry">重开本房间</button>
+      <button class="btn ghost" data-act="levels">选择房间</button>
+    </div>`);
+}
+function resumeGame() {
+  if (state !== 'pause') return;
+  state = 'play';
+  hideOverlay();
+}
+function showClear() {
+  state = 'clear';
+  const i = sim.index, def = sim.def;
+  const rec = save.levels[i] || {};
+  const t = sim.frames / 60;
+  const m = medalOf(t, def.par);
+  const last = i === LEVELS.length - 1;
+  overlayOn(`
+    <div class="card">
+      <div class="stamp">${last ? 'SUMMIT' : 'ROOM CLEAR'}</div>
+      <div class="brand" style="font-size:24px">${def.name}</div>
+      <div class="cn" style="margin:6px 0 6px">${def.en}</div>
+      <div class="bigtime">${fmtTime(t)}</div>
+      <div class="sub">目标 ${fmtTime(def.par)} · 死亡 ${sim.deaths} 次</div>
+      <div class="medal ${m}">${MEDAL_EN[m]}${sim.newPB ? ' · 新纪录' : ''}</div>
+      <div class="clearrow">
+        <div class="clearcell">最佳<b>${fmtTime(rec.best)}</b></div>
+        <div class="clearcell">累计死亡<b>${save.deaths}</b></div>
+      </div>
+      ${last
+        ? '<button class="btn primary" data-act="victory">查看登顶记录</button>'
+        : '<button class="btn primary" data-act="next">下一房间</button>'}
+      <div class="row">
+        <button class="btn ghost" data-act="retry">重试</button>
+        <button class="btn ghost" data-act="levels">选关</button>
+      </div>
+    </div>`);
+}
+function showVictory() {
+  state = 'victory';
+  let total = 0;
+  const rows = LEVELS.map((l, i) => {
+    const rec = save.levels[i] || {};
+    if (rec.best) total += rec.best;
+    return `<div class="recLine"><span>${l.name}</span><b>${rec.best !== undefined ? fmtTime(rec.best) : '—'}</b></div>`;
+  }).join('');
+  overlayOn(`
+    <div class="card">
+      <div class="stamp">ALL CLEAR</div>
+      <div class="brand" style="font-size:26px">ASCENDED</div>
+      <div class="cn" style="margin:8px 0 4px">你已登顶</div>
+      <div class="bigtime" style="font-size:26px">${fmtTime(total)}</div>
+      <div class="sub">五段最佳成绩之和 · 累计死亡 ${save.deaths}</div>
+      <div class="scroll">${rows}</div>
+      <div class="hintSmall">想更快？打开残影，追着自己跑。</div>
+      <button class="btn primary" data-act="levels">回到选关</button>
+      <button class="btn ghost" data-act="home">标题</button>
+    </div>`);
+}
+function toggleMute() {
+  muted = !muted; save.muted = muted; persist();
+  if (state === 'menu') showMenu();
+  SFX.ui();
+}
+
+overlayEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  audioInit();
+  const act = b.dataset.act;
+  const i = parseInt(b.dataset.i, 10);
+  SFX.ui();
+  if (act === 'play') {
+    let start = 0;
+    for (let k = 0; k < LEVELS.length; k++) if (unlocked(k)) start = k;
+    startLevel(Math.min(start, LEVELS.length - 1));
+  }
+  else if (act === 'levels') showLevels();
+  else if (act === 'level') { if (unlocked(i)) startLevel(i); }
+  else if (act === 'resume') resumeGame();
+  else if (act === 'retry') startLevel(sim.index);
+  else if (act === 'next') startLevel(Math.min(sim.index + 1, LEVELS.length - 1));
+  else if (act === 'home') showMenu();
+  else if (act === 'mute') toggleMute();
+  else if (act === 'reset') {
+    if (confirm('清除所有最佳成绩与残影？')) {
+      save = { levels: {}, deaths: 0, clears: 0, muted: muted };
+      persist(); showMenu();
+    }
+  }
+  else if (act === 'victory') showVictory();
+});
+
+/* ==========================================================================
+   11. 主循环
+   ========================================================================== */
+let lastT = 0, acc = 0;
+const STEP = 1 / 60;
+function loop(now) {
+  const dt = Math.min(0.06, (now - lastT) / 1000 || 0);
+  lastT = now;
+  if (state === 'play') {
+    acc += dt;
+    let guard = 0;
+    while (acc >= STEP && guard < 5) { stepSim(held); acc -= STEP; guard++; }
+    if (guard >= 5) acc = 0;
+  } else {
+    acc = 0;
+    if (state === 'menu' || state === 'levels' || state === 'clear' || state === 'victory' || state === 'pause') {
+      // 覆盖层下的背景保持轻微流动
+      updateParticles();
+      if (sim.shake > 0) sim.shake *= 0.86;
+    }
+  }
+  render(now);
+  requestAnimationFrame(loop);
+}
+
+/* ==========================================================================
+   12. 启动
+   ========================================================================== */
+resize();
+// 菜单背景使用第一关的地形
+sim.index = 0;
+sim.def = LEVELS[0];
+buildGrid(LEVELS[0]);
+buildStatic(LEVELS[0]);
+resetPlayer();
+initDust();
+sim.frames = 0;
+showMenu();
+requestAnimationFrame(now => { lastT = now; requestAnimationFrame(loop); });
+
+/* ==========================================================================
+   13. 调试接口（用于自动化验证，不影响正常游玩）
+   ========================================================================== */
+window.__NEON = {
+  CW, CH, TS, COLS, ROWS,
+  levels: LEVELS,
+  load(i) { startLevel(i); state = 'debug'; hideOverlay(); },
+  reset() { respawn(); sim.frames = 0; sim.started = false; sim.dead = false; sim.won = false; sim.deaths = 0; },
+  // 测试用：把角色放到指定格（站立状态）
+  place(tx, ty) {
+    const p = sim.p;
+    p.x = tx * TS + (TS - P_W) / 2; p.y = (ty + 1) * TS - P_H;
+    p.vx = 0; p.vy = 0; p.dashing = 0; p.dashLeft = 1; p.dashAfter = 0; p.onWall = 0;
+    p.jumpBuf = 0; p.dashBuf = 0; p.coyote = C.coyote;
+    sim.dead = false; sim.won = false; sim.started = true;
+  },
+  step(inp) { stepSim(inp); },
+  state() {
+    const p = sim.p;
+    return {
+      x: p.x, y: p.y, vx: p.vx, vy: p.vy, grounded: p.grounded, wall: p.onWall,
+      dash: p.dashLeft, dead: sim.dead, won: sim.won, deaths: sim.deaths,
+      frames: sim.frames, started: sim.started
+    };
+  },
+  grid(i) {
+    const out = [];
+    for (let y = 0; y < ROWS; y++) {
+      let line = '';
+      for (let x = 0; x < COLS; x++) {
+        const d = hazAt(x, y);
+        line += isSolid(x, y) ? '#' : d ? ['', '^', 'v', '<', '>'][d] : '.';
+      }
+      out.push(line);
+    }
+    return out;
+  },
+  simulate(actions) {
+    // actions: 每帧一个 {left,right,up,down,jump,dash}
+    this.reset();
+    for (let f = 0; f < actions.length; f++) {
+      const s = this.state();
+      if (s.dead || s.won) break;
+      stepSim(actions[f]);
+    }
+    return this.state();
+  }
+};
+})();
+</script>
+</body>
+</html>
