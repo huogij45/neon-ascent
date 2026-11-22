@@ -148,7 +148,14 @@
     box-shadow:inset 0 0 12px rgba(80,240,200,.14)}
   .tgl.danger{border-color:rgba(255,140,170,.35);color:#ffb3c6}
   .tgl.danger:hover{background:rgba(90,20,35,.5)}
-  .rng{width:132px;accent-color:#5ce6ff;background:transparent}
+  .rng{width:136px;height:22px;background:transparent;cursor:pointer;-webkit-appearance:none;appearance:none}
+  .rng::-webkit-slider-runnable-track{height:4px;border-radius:3px;
+    background:linear-gradient(90deg,rgba(92,230,255,.85),rgba(150,120,255,.55))}
+  .rng::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-5px;border-radius:50%;
+    background:#eaffff;border:1px solid rgba(92,230,255,.9);box-shadow:0 0 10px rgba(92,230,255,.8)}
+  .rng::-moz-range-track{height:4px;border-radius:3px;background:rgba(92,230,255,.45)}
+  .rng::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#eaffff;
+    border:1px solid rgba(92,230,255,.9);box-shadow:0 0 10px rgba(92,230,255,.8)}
   .card.bad{animation:bad .42s cubic-bezier(.36,.07,.19,.97) both}
   @keyframes bad{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
   @media (max-width:380px){ .brand{font-size:25px} .tbtn{width:58px;height:58px} }
