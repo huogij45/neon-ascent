@@ -158,6 +158,26 @@
     border:1px solid rgba(92,230,255,.9);box-shadow:0 0 10px rgba(92,230,255,.8)}
   .card.bad{animation:bad .42s cubic-bezier(.36,.07,.19,.97) both}
   @keyframes bad{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
+  .lvScroll{max-height:58vh;overflow:auto;margin-top:4px}
+  .lv.done{border-color:rgba(120,255,220,.28)}
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+  .pbtn{width:46px;height:38px;border-radius:10px;cursor:pointer;color:#d8f6ff;
+    border:1px solid rgba(110,225,255,.28);background:rgba(18,36,58,.6);font-size:15px}
+  .pbtn:disabled{opacity:.32;cursor:default}
+  .pinfo{font:700 11px/1.3 ui-monospace,Menlo,monospace;color:#8fb8cf;letter-spacing:.05em}
+  .tbmid{width:46px;height:46px;border-radius:50%;cursor:pointer;color:#bfeaff;font-size:12px;
+    border:1px solid rgba(150,225,255,.3);background:rgba(10,20,34,.82)}
+  .tbmid:active{transform:scale(.93)}
+  .skipbtn{border-color:rgba(255,200,110,.34);color:#ffe0a8;background:rgba(60,42,12,.45)}
+  .diffGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:6px 0 10px}
+  .dbtn{padding:9px 3px;border-radius:10px;cursor:pointer;text-align:center;
+    border:1px solid rgba(110,225,255,.22);background:rgba(14,30,50,.6);color:#9fc2d6}
+  .dbtn b{display:block;font-size:12.5px;color:#d8f4ff;font-weight:800}
+  .dbtn i{display:block;font-style:normal;font:600 9.5px/1.3 ui-monospace,Menlo,monospace;color:#6d8ba0;margin-top:3px;letter-spacing:.04em}
+  .dbtn.on{border-color:rgba(120,240,255,.6);background:linear-gradient(160deg,rgba(30,90,120,.9),rgba(40,44,110,.85));
+    box-shadow:0 0 18px rgba(80,200,255,.25)}
+  .dbtn.on b{color:#ecffff}
+  .skScroll{max-height:46vh;overflow:auto;margin-top:4px}
   @media (max-width:380px){ .brand{font-size:25px} .tbtn{width:58px;height:58px} }
 </style>
 </head>
@@ -172,6 +192,9 @@
     <div class="grp">
       <button class="tbtn" data-k="left" aria-label="向左">◀</button>
       <button class="tbtn" data-k="right" aria-label="向右">▶</button>
+    </div>
+    <div class="grp mid">
+      <button class="tbmid" id="pauseBtn" aria-label="暂停">❚❚</button>
     </div>
     <div class="grp">
       <button class="tbtn dash" data-k="dash" aria-label="冲刺">⚡</button>
@@ -198,8 +221,35 @@ const C = {
   maxRun: 2.8, accG: 0.62, accA: 0.45, fricG: 0.84, fricA: 0.95,
   jumpV: -5.6, coyote: 6, jumpBuf: 8, cutV: 2.2,
   wjV: -5.2, wjX: 3.4, wjLock: 8, slide: 1.5,
-  dashV: 6.6, dashT: 10, dashAfter: 12, dashBuf: 7
+  dashV: 6.6, dashT: 10, dashAfter: 12, dashBuf: 7,
+  dashCharges: 1
 };
+const C_BASE = { ...C };
+/* 难度只改「宽容度」，不改跳跃几何 —— 否则生成关可能变得不可通。
+   简单多给一次冲刺、放宽土狼时间与缓冲；困难/地狱只收紧判定，跳的距离一分不变。 */
+const DIFFS = [
+  { id:'easy',   name:'简单', en:'EASY',   sub:'冲刺×2',   par:1.45,
+    desc:'冲刺 2 次 · 土狼 12 帧 · 跳跃缓冲 14 帧 · 奖牌时间放宽 45%',
+    phys:{ coyote:12, jumpBuf:14, cutV:2.6, wjLock:10 }, charges:2 },
+  { id:'normal', name:'普通', en:'NORMAL', sub:'原版手感',  par:1,
+    desc:'原版手感：冲刺 1 次 · 土狼 6 帧 · 跳跃缓冲 8 帧',
+    phys:{}, charges:1 },
+  { id:'hard',   name:'困难', en:'HARD',   sub:'土狼3帧',  par:0.90,
+    desc:'土狼 3 帧 · 跳跃缓冲 5 帧 · 奖牌时间缩短 10%',
+    phys:{ coyote:3, jumpBuf:5 }, charges:1 },
+  { id:'hell',   name:'地狱', en:'HELL',   sub:'零宽容',    par:0.75,
+    desc:'没有土狼时间 · 跳跃缓冲 2 帧 · 奖牌时间缩短 25%',
+    phys:{ coyote:0, jumpBuf:2, cutV:1.7 }, charges:1 }
+];
+let DIFF = DIFFS[1];
+function applyDiff() {
+  const id = save && save.settings && save.settings.diff;
+  const d = DIFFS.find(x => x.id === id) || DIFFS[1];
+  DIFF = d;
+  Object.assign(C, C_BASE, d.phys || {});
+  C.dashCharges = d.charges;
+}
+function parOf(par) { return Math.max(3, Math.round(par * DIFF.par * 10) / 10); }
 
 /* ==========================================================================
    1. 关卡数据（32×18 网格，单位=格）
@@ -216,7 +266,7 @@ const LEVELS = [
     start: [2, 15], goal: [30, 7],
     solids: [[0,16,32,2], [7,14,5,1], [14,12,4,1], [21,10,5,1], [28,8,4,1]],
     spikes: [[11,15,3,'up'], [23,9,2,'up']],
-    coins: [[10,13], [16,11], [23,8]],
+    coins: [[10,13], [16,11], [23,8], [8,13], [29,7]],
     hint: '← → 移动 · Z / 空格 跳跃（松手早跳得低）'
   },
   {
@@ -225,7 +275,7 @@ const LEVELS = [
     start: [1, 15], goal: [30, 12],
     solids: [[0,16,5,2], [8,15,3,1], [17,15,3,1], [24,14,3,1], [30,13,2,1]],
     spikes: [[12,10,4,'down'], [20,10,3,'down']],
-    coins: [[6,14], [15,13], [27,12]],
+    coins: [[6,14], [15,13], [27,12], [9,14], [31,12]],
     hint: 'X / Shift 冲刺 · 落在平台上会补满一次冲刺'
   },
   {
@@ -234,7 +284,7 @@ const LEVELS = [
     start: [13, 15], goal: [13, 2],
     solids: [[0,16,32,2], [10,1,2,15], [15,1,2,15]],
     spikes: [],
-    coins: [[12,9], [14,7], [13,4]],
+    coins: [[12,9], [14,7], [13,4], [12,12], [14,5]],
     hint: '贴墙下滑时按跳跃＝反向蹬墙 · 蹬墙也会补冲刺'
   },
   {
@@ -243,7 +293,7 @@ const LEVELS = [
     start: [1, 15], goal: [27, 12],
     solids: [[0,16,32,2], [3,14,3,1], [9,13,3,1], [15,13,3,1], [21,13,3,1], [26,13,4,1]],
     spikes: [[6,10,2,'down'], [12,10,2,'down'], [18,10,2,'down'], [24,10,2,'down'], [6,15,26,'up']],
-    coins: [[4,13], [16,12], [27,12]],
+    coins: [[4,13], [16,12], [27,12], [10,12], [22,12]],
     hint: '天花板有刺：用横向冲刺代替起跳'
   },
   {
@@ -252,7 +302,7 @@ const LEVELS = [
     start: [1, 15], goal: [24, 1],
     solids: [[0,16,32,2], [0,6,1,10], [4,6,2,10], [4,6,8,1], [14,5,2,1], [17,3,2,1], [20,2,6,1]],
     spikes: [[7,15,25,'up'], [22,2,1,'up']],
-    coins: [[3,13], [7,4], [19,4]],
+    coins: [[3,13], [7,4], [19,4], [8,5], [21,1]],
     hint: '爬出竖井后不要停：经中柱一口气冲到终点'
   },
   {
@@ -261,7 +311,7 @@ const LEVELS = [
     start: [1, 15], goal: [27, 9],
     solids: [[0,16,32,2], [3,14,4,1], [9,13,4,1], [15,14,3,1], [20,12,4,1], [26,10,4,1]],
     spikes: [[7,15,2,'up'], [12,10,3,'down'], [23,15,2,'up']],
-    coins: [[5,13], [10,12], [21,11]],
+    coins: [[5,13], [10,12], [21,11], [16,13], [27,9]],
     hint: '一次失误就重来：先看清楚再起跳'
   },
   {
@@ -270,7 +320,7 @@ const LEVELS = [
     start: [1, 15], goal: [31, 12],
     solids: [[0,16,6,2], [8,15,2,1], [14,15,2,1], [20,14,2,1], [26,14,3,1], [30,13,2,1]],
     spikes: [[10,9,3,'down'], [17,9,3,'down']],
-    coins: [[6,13], [16,13], [24,13]],
+    coins: [[6,13], [16,13], [24,13], [8,14], [26,13]],
     hint: '掉下去没有底：冲刺用完就立刻落地补满'
   },
   {
@@ -279,7 +329,7 @@ const LEVELS = [
     start: [1, 15], goal: [30, 9],
     solids: [[0,16,32,2], [3,14,3,1], [9,13,3,1], [15,14,3,1], [20,12,3,1], [25,11,3,1], [29,10,2,1]],
     spikes: [[5,8,3,'down'], [11,8,3,'down'], [17,9,3,'down'], [23,8,3,'down'], [27,15,4,'up']],
-    coins: [[4,13], [16,13], [26,10]],
+    coins: [[4,13], [16,13], [26,10], [21,11], [30,9]],
     hint: '天花板压得低：短跳比高跳更安全'
   },
   {
@@ -288,7 +338,7 @@ const LEVELS = [
     start: [1, 15], goal: [28, 11],
     solids: [[0,16,32,2], [2,13,3,1], [7,12,3,1], [12,13,3,1], [17,12,3,1], [22,13,3,1], [27,12,3,1]],
     spikes: [[6,15,26,'up']],
-    coins: [[3,12], [9,11], [24,12]],
+    coins: [[3,12], [9,11], [24,12], [8,11], [28,11]],
     hint: '整片地面都是刺：每一步都落在窄台上'
   },
   {
@@ -297,11 +347,117 @@ const LEVELS = [
     start: [1, 15], goal: [30, 8],
     solids: [[0,16,32,2], [2,14,3,1], [7,13,3,1], [12,12,3,1], [18,12,3,1], [24,11,3,1], [29,9,3,1]],
     spikes: [[5,15,2,'up'], [10,15,2,'up'], [16,15,2,'up'], [22,15,2,'up'], [27,15,2,'up'], [14,7,3,'down']],
-    coins: [[4,13], [19,11], [30,7]],
+    coins: [[4,13], [19,11], [30,7], [13,11], [25,10]],
     hint: '最后一程：把跳跃、冲刺、落点全用上'
   }
 ];
 /*LEVELS_END*/
+/* ---- 第 11 关起程序化生成，直到第 1000 关 ----
+   每一跳的水平距离都按实测上限留了余量：
+   rise 2 格时缺口 ≤2 格（跳 + 冲刺够用），rise 1 格时缺口 ≤5 格（纯跳就能过）。
+   所以生成出来的每一关都能通。 ---- */
+const TOTAL_LEVELS = 1000;
+const SKIP_COST = 10;
+function rand32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const GEN_NAMES = ['回廊', '悬梯', '窄径', '逆风', '断崖', '暗涌', '螺旋', '残响', '刀锋', '深井', '浮桥', '终界'];
+const GEN_SUBS = ['台阶开始变窄', '先站稳，再往上', '每个落点都要准', '别在空中犹豫', '窄台连跳',
+  '往上没有退路', '一步一步往上', '节奏别断', '尖刺在等你', '只能往前', '刚好一跳的距离', '越来越高'];
+const GEN_HINTS = ['跳跃按久一点，能多跳半格', '冲刺落地会自动补满', '先看下一块台在哪，再起跳',
+  '掉了就重来，没有中间点', '贴着墙也能蹬着上', '金币在台子上方，敢跳就顺手拿'];
+function genLevel(i, rnd) {
+  const diff = Math.min(1, (i - 10) / 900);
+  const n = 7 + Math.floor(diff * 5) + (rnd() < 0.4 ? 1 : 0);
+  const hue = Math.floor((i * 53) % 360);
+  const solids = [[0, 16, 4, 2]], spikes = [], nodes = [{ x: 0, y: 16, w: 4 }];
+  let x = 0, y = 16, w = 4, dir = 1;
+  for (let s = 0; s < n; s++) {
+    let placed = false;
+    for (let attempt = 0; attempt < 10 && !placed; attempt++) {
+      const rise = rnd() < 0.28 + diff * 0.4 ? 2 : 1;
+      let gap = rise === 2 ? 1 + (rnd() < 0.35 ? 1 : 0)
+                           : 1 + Math.floor(rnd() * (2 + Math.round(diff * 2)));
+      if (s === 0) gap = Math.min(gap, 3);
+      const w2 = Math.max(2, 5 - Math.floor(diff * 2) - (rnd() < 0.35 ? 1 : 0));
+      let ndir = dir;
+      let nx = ndir === 1 ? x + w + gap : x - gap - w2;
+      if (nx < 1 || nx + w2 > 31) {
+        ndir = -ndir;
+        nx = ndir === 1 ? x + w + gap : x - gap - w2;
+        if (nx < 1 || nx + w2 > 31) continue;
+      }
+      const ny = y - rise;
+      if (ny < 3) break;
+      // 头顶 2 格内压着别的台子 → 跳跃弧线会被顶回来，这一跳作废重来
+      const headBlocked = (px) => nodes.some(o =>
+        o.y !== ny && Math.abs(o.y - ny) < 3 &&
+        Math.min(px + w2, o.x + o.w) > Math.max(px, o.x));
+      if (headBlocked(nx)) continue;
+      solids.push([nx, ny, w2, 1]);
+      if (w2 >= 5 && rnd() < 0.12 + diff * 0.3) spikes.push([nx + 2, ny - 1, 1, 'up']);
+      nodes.push({ x: nx, y: ny, w: w2 });
+      x = nx; y = ny; w = w2; dir = ndir;
+      placed = true;
+    }
+    if (!placed) break;
+  }
+  const occ = (tx, ty) =>
+    solids.some(o => tx >= o[0] && tx < o[0] + o[2] && ty >= o[1] && ty < o[1] + (o[3] || 1)) ||
+    spikes.some(o => tx >= o[0] && tx < o[0] + o[2] && ty >= o[1] && ty < o[1] + 1);
+  const coins = [], used = {};
+  const putCoin = (cx, cy) => {
+    const key = cx + ',' + cy;
+    if (used[key] || occ(cx, cy)) return false;
+    used[key] = 1; coins.push([cx, cy]); return true;
+  };
+  const cand = nodes.slice(1);
+  const want = [Math.floor(cand.length * 0.15), Math.floor(cand.length * 0.35),
+                Math.floor(cand.length * 0.55), Math.floor(cand.length * 0.78), cand.length - 1];
+  for (const ci of want) {
+    if (coins.length >= 5) break;
+    const nd = cand[ci];
+    if (!nd) continue;
+    const cx = nd.x + Math.floor(nd.w / 2);
+    if (!occ(cx, nd.y - 2) && !occ(cx, nd.y - 1) && rnd() < 0.5) putCoin(cx, nd.y - 2);
+    else putCoin(cx, nd.y - 1);
+  }
+  for (let pass = 0; pass < 3 && coins.length < 5; pass++) {
+    for (const nd of cand) {
+      if (coins.length >= 5) break;
+      for (let tx = nd.x; tx < nd.x + nd.w; tx++) {
+        if (putCoin(tx, nd.y - 1 - pass)) break;
+      }
+    }
+  }
+  const last = nodes[nodes.length - 1];
+  let goal = null;
+  for (let tx = last.x; tx < last.x + last.w && !goal; tx++) {
+    if (!occ(tx, last.y - 1) && !used[tx + ',' + (last.y - 1)]) goal = [tx, last.y - 1];
+  }
+  if (!goal) goal = [last.x, Math.max(2, last.y - 2)];
+  return {
+    name: GEN_NAMES[i % GEN_NAMES.length] + ' ' + String(i + 1).padStart(3, '0'),
+    en: 'TIER ' + String(i + 1).padStart(3, '0'),
+    hue, par: Math.round(6 + nodes.length * 1.6),
+    sub: GEN_SUBS[i % GEN_SUBS.length],
+    start: [2, 15], goal,
+    solids, spikes, coins,
+    hint: GEN_HINTS[i % GEN_HINTS.length],
+    gen: true
+  };
+}
+for (let gi = LEVELS.length; gi < TOTAL_LEVELS; gi++) {
+  LEVELS.push(genLevel(gi, rand32(0x9E3779B9 ^ (gi * 2654435761))));
+}
+const GEN_FROM = 10;
 
 /* ==========================================================================
    2. 工具
@@ -336,14 +492,30 @@ const SKINS = [
   { id:'jade',   name:'翡翠', cost:8,  body:['#dcffe9','#4ce89a','#0f8a58'], glow:'rgba(80,240,160,.9)',   trail:'rgba(80,240,160,1)' },
   { id:'violet', name:'紫电', cost:12, body:['#efe0ff','#a97bff','#5b2fb0'], glow:'rgba(180,120,255,.9)',  trail:'rgba(180,140,255,1)' },
   { id:'rose',   name:'蔷薇', cost:18, body:['#ffe4f2','#ff6fb3','#b32569'], glow:'rgba(255,120,190,.9)',  trail:'rgba(255,120,190,1)' },
-  { id:'mono',   name:'白噪', cost:25, body:['#ffffff','#c9d6e2','#6d8399'], glow:'rgba(235,248,255,.9)',  trail:'rgba(225,240,255,1)' }
+  { id:'mono',   name:'白噪', cost:25, body:['#ffffff','#c9d6e2','#6d8399'], glow:'rgba(235,248,255,.9)',  trail:'rgba(225,240,255,1)' },
+  { id:'rust',   name:'铁锈', cost:32,  body:['#ffe3cf','#c9662f','#6b2610'], glow:'rgba(200,110,60,.9)',  trail:'rgba(210,120,60,1)' },
+  { id:'aurora', name:'极光', cost:42,  body:['#d8fff2','#3ef0c4','#0a7a6e'], glow:'rgba(70,240,200,.9)',  trail:'rgba(80,240,205,1)' },
+  { id:'dune',   name:'沙暴', cost:52,  body:['#fff3d0','#e2b96a','#866226'], glow:'rgba(230,190,110,.9)', trail:'rgba(235,200,120,1)' },
+  { id:'abyss',  name:'深洋', cost:64,  body:['#d8efff','#2f86d8','#0a3568'], glow:'rgba(70,150,235,.9)',  trail:'rgba(80,160,240,1)' },
+  { id:'tundra', name:'苔原', cost:78,  body:['#eaffd8','#8fd45a','#3a6a1c'], glow:'rgba(150,220,90,.9)',  trail:'rgba(160,225,100,1)' },
+  { id:'magma',  name:'熔核', cost:92,  body:['#fff0c2','#ff7c1a','#8f1d00'], glow:'rgba(255,120,40,.95)', trail:'rgba(255,130,50,1)' },
+  { id:'star',   name:'星尘', cost:110, body:['#ffffff','#b9a8ff','#54469a'], glow:'rgba(190,170,255,.9)', trail:'rgba(200,180,255,1)' },
+  { id:'blood',  name:'血月', cost:130, body:['#ffdede','#ff3d5e','#8a1026'], glow:'rgba(255,70,110,.95)', trail:'rgba(255,80,115,1)' },
+  { id:'ice',    name:'冰川', cost:152, body:['#eafcff','#7ce0ff','#25769e'], glow:'rgba(130,235,255,.9)', trail:'rgba(140,240,255,1)' },
+  { id:'toxic',  name:'荧绿', cost:178, body:['#f2ffe0','#a6ff2e','#488a00'], glow:'rgba(180,255,60,.95)', trail:'rgba(190,255,70,1)' },
+  { id:'gold',   name:'暗金', cost:210, body:['#fff6cf','#f0c14b','#87660e'], glow:'rgba(255,220,120,.95)',trail:'rgba(255,225,130,1)' },
+  { id:'void',   name:'虚空', cost:250, body:['#e8e6ff','#6b5bd6','#181040'], glow:'rgba(130,110,230,.95)',trail:'rgba(140,120,240,1)' },
+  { id:'iris',   name:'虹彩', cost:300, body:['#ffffff','#ff7ad9','#6a2fd6'], glow:'rgba(255,130,225,.95)',trail:'rgba(255,140,230,1)' },
+  { id:'plat',   name:'白金', cost:380, body:['#ffffff','#e2ecf7','#8ea2b6'], glow:'rgba(240,250,255,.95)',trail:'rgba(245,252,255,1)' },
+  { id:'spectrum',name:'光谱',cost:520, body:['#ffffff','#7af5ff','#7a2fd6'], glow:'rgba(150,240,255,.95)',trail:'rgba(160,245,255,1)' }
 ];
 const GHOST_PAL = { body:['#d6e4ff','#8fa8ff','#3b4d9a'], glow:'rgba(150,180,240,.7)' };
 function newSave() {
   return {
     v: 2, levels: {}, deaths: 0, clears: 0, coins: 0,
     owned: ['cyber'], skin: 'cyber',
-    settings: { sfx: true, vol: 0.8, shake: true, ghost: true, fx: true, timer: true }
+    settings: { sfx: true, vol: 0.8, shake: true, ghost: true, fx: true, timer: false, diff: 'normal', autoPause: true },
+    timerOff: true
   };
 }
 let save = newSave();
@@ -363,12 +535,26 @@ let save = newSave();
     if (typeof p.skin === 'string') d.skin = p.skin;
     if (p.settings) Object.assign(d.settings, p.settings);
     else if (p.muted !== undefined) d.settings.sfx = !p.muted;   // v1 → v2 迁移
+    if (!p.timerOff) { d.settings.timer = false; d.timerOff = true; }  // 老档统一把计时关掉，可在设置里再打开
     save = d;
   } catch (e) {}
   if (!save.owned.includes(save.skin)) save.skin = 'cyber';
 })();
+applyDiff();
+persist();   // 首次进入就把默认存档落盘（顺带完成 v1 → v2 迁移）
 function persist() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  try {
+    const gs = [];
+    for (const k in save.levels) {
+      const r = save.levels[k];
+      if (r && r.ghost) gs.push([k, r.ghostAt || 0]);
+    }
+    if (gs.length > 40) {
+      gs.sort((a, b) => b[1] - a[1]);
+      for (let n = 40; n < gs.length; n++) delete save.levels[gs[n][0]].ghost;
+    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch (e) {}
 }
 const skinOf = id => SKINS.find(s => s.id === id) || SKINS[0];
 const curSkin = () => skinOf(save.skin);
@@ -431,7 +617,7 @@ const padEl = document.getElementById('pad');
 function resize() {
   const touch = isTouch();
   stage.classList.toggle('touch', touch);
-  padEl.classList.toggle('on', touch);
+  padEl.classList.toggle('on', touch && state === 'play');
   const padBottom = touch ? PAD_H + 12 : 12;
   const availW = window.innerWidth - 12;
   const availH = window.innerHeight - padBottom;
@@ -596,7 +782,7 @@ function resetPlayer() {
   sim.p = {
     x: s[0] * TS + (TS - P_W) / 2, y: (s[1] + 1) * TS - P_H,
     vx: 0, vy: 0, facing: 1, grounded: true, onWall: 0,
-    dashLeft: 1, dashing: 0, dashBuf: 0, jumpBuf: 0, coyote: C.coyote,
+    dashLeft: C.dashCharges, dashing: 0, dashBuf: 0, jumpBuf: 0, coyote: C.coyote,
     lockX: 0, jumpCut: false, dashAfter: 0, dashDX: 1, dashDY: 0,
     sx: 1, sy: 1, trailT: 0
   };
@@ -736,7 +922,7 @@ function win() {
   const isPB = rec.best === undefined || t < rec.best;
   if (isPB) {
     rec.best = t;
-    rec.ghost = sim.rec.slice(-1400);
+    rec.ghost = sim.rec.slice(-900); rec.ghostAt = Date.now();
     rec.par = sim.def.par;
   }
   rec.runs = (rec.runs || 0) + 1;
@@ -817,7 +1003,7 @@ function stepSim(inp) {
       const w = p.onWall;
       p.vy = C.wjV; p.vx = -w * C.wjX; p.lockX = C.wjLock;
       p.coyote = 0; p.jumpBuf = 0; p.jumpCut = false;
-      p.facing = -w; p.dashLeft = 1;
+      p.facing = -w; p.dashLeft = C.dashCharges;
       p.sx = 1.22; p.sy = 0.84;
       spawn(p.x + (w > 0 ? P_W : 0), p.y + P_H / 2, 7, { sp: 2.2, size: 2, life: 20, col: '#c7a8ff', g: 0.05 });
       SFX.wall();
@@ -911,9 +1097,9 @@ function stepSim(inp) {
   // 缓冲与补冲刺
   if (p.grounded) {
     p.coyote = C.coyote;
-    if (p.dashAfter === 0) p.dashLeft = 1;
+    if (p.dashAfter === 0) p.dashLeft = C.dashCharges;
   } else if (p.onWall !== 0 && p.dashing === 0 && p.dashAfter === 0) {
-    p.dashLeft = 1;
+    p.dashLeft = C.dashCharges;
   }
 
   // 挤压回弹
@@ -1215,7 +1401,20 @@ window.addEventListener('keyup', e => {
   if (CODEMAP[e.code]) { pressed.delete(e.code); syncKeys(); }
 });
 window.addEventListener('blur', () => { pressed.clear(); syncKeys(); });
+function autoPause() {
+  if (!save.settings.autoPause) return;
+  if (state !== 'play') return;
+  if (sim.dead || sim.won) return;
+  pauseGame();
+}
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
+const pauseBtn = document.getElementById('pauseBtn');
+if (pauseBtn) {
+  pauseBtn.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); pauseGame(); });
+  pauseBtn.addEventListener('contextmenu', e => e.preventDefault());
+}
 document.querySelectorAll('.tbtn').forEach(btn => {
   const k = btn.dataset.k;
   const down = e => {
@@ -1245,6 +1444,7 @@ function updatePadVisibility() {
    ========================================================================== */
 function medalOf(t, par) {
   if (t === undefined) return 'none';
+  par = parOf(par);
   if (t <= par) return 'gold';
   if (t <= par * 1.35) return 'silver';
   if (t <= par * 1.9) return 'bronze';
@@ -1266,10 +1466,18 @@ function hideOverlay() {
 function unlocked(i) {
   if (i === 0) return true;
   const prev = save.levels[i - 1];
-  return !!(prev && prev.best !== undefined);
+  return !!(prev && (prev.best !== undefined || prev.skipped));
 }
 function clearedCount() {
   return LEVELS.reduce((n, _, i) => n + (save.levels[i] && save.levels[i].best !== undefined ? 1 : 0), 0);
+}
+function skippedCount() {
+  return LEVELS.reduce((n, _, i) => n + (save.levels[i] && save.levels[i].skipped ? 1 : 0), 0);
+}
+function highestUnlocked() {
+  let h = 0;
+  for (let k = 0; k < LEVELS.length; k++) if (unlocked(k)) h = k;
+  return h;
 }
 
 function showMenu() {
@@ -1286,7 +1494,7 @@ function showMenu() {
         <button class="btn ghost" data-act="skins">机体 · ${curSkin().name}</button>
         <button class="btn ghost" data-act="settings">设置</button>
       </div>
-      <div class="meta">◈ 金币 <b>${save.coins}</b> · 已通过 <b>${n}/${LEVELS.length}</b> · 死亡 <b>${save.deaths}</b></div>
+      <div class="meta">难度 <b>${DIFF.name}</b> · ◈ 金币 <b>${save.coins}</b> · 已通过 <b>${n}/${LEVELS.length}</b> · 死亡 <b>${save.deaths}</b></div>
       <div class="keys">
         ${isTouch()
           ? '<b>◀ ▶</b> 移动 · <b>▲</b> 跳跃 · <b>⚡</b> 冲刺<br>长按跳跃可跳得更高'
@@ -1294,40 +1502,59 @@ function showMenu() {
       </div>
     </div>`);
 }
-function showLevels() {
+function showLevels(page) {
   state = 'levels';
-  const cards = LEVELS.map((l, i) => {
-    const rec = save.levels[i] || {};
+  const PER = 20, pages = Math.ceil(LEVELS.length / PER);
+  if (page === undefined) page = levelPage >= 0 ? levelPage : Math.floor(highestUnlocked() / PER);
+  levelPage = Math.max(0, Math.min(pages - 1, page));
+  const from = levelPage * PER, to = Math.min(LEVELS.length, from + PER);
+  let cards = '';
+  for (let i = from; i < to; i++) {
+    const l = LEVELS[i], rec = save.levels[i] || {};
     const ok = unlocked(i);
     const m = medalOf(rec.best, l.par);
-    return `<button class="lv ${ok ? '' : 'locked'}" ${ok ? `data-act="level" data-i="${i}"` : 'disabled'}>
-      <span class="no">ROOM ${String(i + 1).padStart(2, '0')} ${ok ? '' : '· 未解锁'}</span>
+    const done = rec.best !== undefined;
+    cards += `<button class="lv ${ok ? '' : 'locked'} ${done ? 'done' : ''}" ${ok ? `data-act="level" data-i="${i}"` : 'disabled'}>
+      <span class="no">ROOM ${String(i + 1).padStart(3, '0')} ${ok ? '' : '· 未解锁'}</span>
       <span class="nm">${l.name}</span>
-      <span class="tm"><span class="dot ${m}"></span>${rec.best !== undefined ? fmtTime(rec.best) : '—'} <span style="opacity:.45">/ 目标 ${fmtTime(l.par)}</span></span>
+      <span class="tm"><span class="dot ${m}"></span>${done ? fmtTime(rec.best) : rec.skipped ? '已跳过' : '—'} <span style="opacity:.45">/ ${fmtTime(parOf(l.par))}</span></span>
       <span class="lc">◈ ${(rec.coins || []).length}/${(l.coins || []).length}</span>
     </button>`;
-  }).join('');
+  }
   overlayOn(`
     <div class="card">
       <div class="brand" style="font-size:22px">SELECT ROOM</div>
-      <div class="cn" style="margin:8px 0 16px">选择房间</div>
-      <div class="lvGrid">${cards}</div>
-      <div class="meta" style="margin-top:12px">◈ 金币 <b>${save.coins}</b></div>
-      <div class="hintSmall">通关一个房间才会解锁下一个 · 黄金 = 低于目标时间<br>每间房藏着 3 枚金币，拿到手里才算数</div>
-      <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
+      <div class="cn" style="margin:8px 0 10px">选择房间</div>
+      <div class="lvScroll"><div class="lvGrid">${cards}</div></div>
+      <div class="pager">
+        <button class="pbtn" data-act="lpage" data-i="-1" ${levelPage === 0 ? 'disabled' : ''}>‹</button>
+        <span class="pinfo">第 ${levelPage + 1} / ${pages} 页 · 共 ${LEVELS.length} 关</span>
+        <button class="pbtn" data-act="lpage" data-i="1" ${levelPage === pages - 1 ? 'disabled' : ''}>›</button>
+      </div>
+      <button class="btn ghost" data-act="lgo" style="margin-top:8px">回到我所在的房间</button>
+      <div class="meta" style="margin-top:10px">◈ 金币 <b>${save.coins}</b> · 已通过 <b>${clearedCount()}</b> · 跳过 <b>${skippedCount()}</b></div>
+      <div class="hintSmall">通关或花 ${SKIP_COST} 枚金币跳过，才会解锁下一关</div>
+      <button class="btn ghost" data-act="home" style="margin-top:6px">主界面</button>
     </div>`);
 }
 function pauseGame() {
   if (state !== 'play') return;
   state = 'pause';
+  const got = sim.coins.filter(c => c.got).length;
   overlayOn(`
     <div class="card">
       <div class="stamp">PAUSED</div>
-      <div class="bigtime" style="font-size:24px">${fmtTime(sim.frames / 60)}</div>
-      <div class="sub">${sim.def.name} · 死亡 ${sim.deaths}</div>
-      <button class="btn primary" data-act="resume">继续</button>
-      <button class="btn" data-act="retry">重开本房间</button>
-      <button class="btn ghost" data-act="levels">选择房间</button>
+      <div class="brand" style="font-size:22px">${sim.def.name}</div>
+      <div class="sub" style="letter-spacing:.14em;margin:8px 0 12px">ROOM ${String(sim.index + 1).padStart(3, '0')} / ${LEVELS.length}</div>
+      <div class="sub">已收集 ◈ ${got}/${sim.coins.length} · 钱包 ◈ ${save.coins}</div>
+      <button class="btn primary" data-act="resume" style="margin-top:14px">继续</button>
+      <button class="btn" data-act="retry">重开本关</button>
+      <button class="btn skipbtn" data-act="skip">跳过本关 · ◈ ${SKIP_COST}</button>
+      <div class="row">
+        <button class="btn ghost" data-act="levels">选关</button>
+        <button class="btn ghost" data-act="home">主界面</button>
+      </div>
+      <div class="hintSmall">跳过会扣 ${SKIP_COST} 枚金币，本关记为「已跳过」，下一关解锁</div>
     </div>`);
 }
 function resumeGame() {
@@ -1348,7 +1575,7 @@ function showClear() {
       <div class="brand" style="font-size:24px">${def.name}</div>
       <div class="cn" style="margin:6px 0 6px">${def.en}</div>
       <div class="bigtime">${fmtTime(t)}</div>
-      <div class="sub">目标 ${fmtTime(def.par)} · 死亡 ${sim.deaths} 次 · 本房金币 ${sim.coins.filter(c => c.got).length}/${sim.coins.length}</div>
+      <div class="sub">目标 ${fmtTime(parOf(def.par))} · 死亡 ${sim.deaths} 次 · 本房金币 ${sim.coins.filter(c => c.got).length}/${sim.coins.length}</div>
       <div class="medal ${m}">${MEDAL_EN[m]}${sim.newPB ? ' · 新纪录' : ''}</div>
       <div class="clearrow">
         <div class="clearcell">最佳<b>${fmtTime(rec.best)}</b></div>
@@ -1361,27 +1588,34 @@ function showClear() {
         <button class="btn ghost" data-act="retry">重试</button>
         <button class="btn ghost" data-act="levels">选关</button>
       </div>
+      <button class="btn ghost" data-act="home" style="margin-top:9px">主界面</button>
     </div>`);
 }
 function showVictory() {
   state = 'victory';
-  let total = 0;
-  const rows = LEVELS.map((l, i) => {
-    const rec = save.levels[i] || {};
-    if (rec.best) total += rec.best;
-    return `<div class="recLine"><span>${l.name}</span><b>${rec.best !== undefined ? fmtTime(rec.best) : '—'}</b></div>`;
-  }).join('');
+  const done = clearedCount(), skipped = skippedCount();
+  let total = 0, best = Infinity, bestName = '—';
+  for (let i = 0; i < LEVELS.length; i++) {
+    const b = save.levels[i] && save.levels[i].best;
+    if (b !== undefined) { total += b; if (b < best) { best = b; bestName = LEVELS[i].name; } }
+  }
   overlayOn(`
     <div class="card">
       <div class="stamp">ALL CLEAR</div>
       <div class="brand" style="font-size:26px">ASCENDED</div>
       <div class="cn" style="margin:8px 0 4px">你已登顶</div>
-      <div class="bigtime" style="font-size:26px">${fmtTime(total)}</div>
-      <div class="sub">${LEVELS.length} 段最佳成绩之和 · 金币 ${save.coins} · 累计死亡 ${save.deaths}</div>
-      <div class="scroll">${rows}</div>
+      <div class="bigtime" style="font-size:26px">${done} / ${LEVELS.length}</div>
+      <div class="sub">已通关房间 · 跳过 ${skipped} 间</div>
+      <div class="clearrow">
+        <div class="clearcell">总用时<b>${fmtTime(total)}</b></div>
+        <div class="clearcell">最快一间<b>${fmtTime(best)}</b></div>
+        <div class="clearcell">钱包<b>◈ ${save.coins}</b></div>
+      </div>
+      <div class="recLine"><span>最快记录</span><b>${bestName}</b></div>
+      <div class="recLine"><span>累计死亡</span><b>${save.deaths}</b></div>
       <div class="hintSmall">想更快？打开残影，追着自己跑。</div>
       <button class="btn primary" data-act="levels">回到选关</button>
-      <button class="btn ghost" data-act="home">标题</button>
+      <button class="btn ghost" data-act="home">主界面</button>
     </div>`);
 }
 function showSkins() {
@@ -1402,14 +1636,17 @@ function showSkins() {
       <div class="brand" style="font-size:22px">SKINS</div>
       <div class="cn" style="margin:8px 0 10px">机 体 涂 装</div>
       <div class="wallet">◈ <b>${save.coins}</b></div>
-      <div class="skinGrid">${cards}</div>
-      <div class="hintSmall">金币在关卡里收：每间 3 枚，拿了就不再出现。<br>买下即装备，涂装只影响外观，不改手感。</div>
+      <div class="skScroll"><div class="skinGrid">${cards}</div></div>
+      <div class="hintSmall">共 ${SKINS.length} 款 · 已解锁 ${save.owned.length} 款<br>每关 5 枚金币，拿了就不再出现；买下即装备，涂装只改外观不改手感。</div>
       <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
     </div>`);
 }
 function showSettings() {
   state = 'settings';
   const st = save.settings;
+  const dbtn = DIFFS.map(d => `<button class="dbtn ${st.diff === d.id ? 'on' : ''}" data-act="diff" data-d="${d.id}">
+      <b>${d.name}</b><i>${d.en}</i></button>`).join('');
+  const curDiff = DIFFS.find(d => d.id === st.diff) || DIFFS[1];
   const row = (k, label, tip) => `<div class="setRow">
       <span class="sl">${label}<i>${tip || ''}</i></span>
       <button class="tgl ${st[k] ? 'on' : ''}" data-act="opt" data-k="${k}">${st[k] ? '开' : '关'}</button>
@@ -1418,6 +1655,9 @@ function showSettings() {
     <div class="card">
       <div class="brand" style="font-size:22px">SETTINGS</div>
       <div class="cn" style="margin:8px 0 12px">设 置</div>
+      <div class="setRow" style="margin-bottom:0"><span class="sl">难度<i>只改判定宽容度，跳跃距离不变</i></span></div>
+      <div class="diffGrid">${dbtn}</div>
+      <div class="hintSmall" style="margin:-2px 0 10px">${curDiff.desc}</div>
       ${row('sfx', '音效', '按键与事件音')}
       <div class="setRow">
         <span class="sl">音量<i id="volv">${Math.round(st.vol * 100)}%</i></span>
@@ -1427,11 +1667,12 @@ function showSettings() {
       ${row('ghost', '最佳残影', '用自己最快的路线陪跑')}
       ${row('fx', '粒子特效', '受伤、落地、拾取的火花')}
       ${row('timer', '显示计时', '关掉更干净，成绩照旧记录')}
+      ${row('autoPause', '切后台自动暂停', '离开页面就停下，回来接着走')}
       <div class="setRow">
         <span class="sl">存档<i>金币 ${save.coins} · 已通过 ${clearedCount()} / ${LEVELS.length}</i></span>
         <button class="tgl danger" data-act="reset">清空</button>
       </div>
-      <div class="hintSmall">成绩、金币、皮肤、设置都会自动保存在这台设备上。</div>
+      <div class="hintSmall">每关 5 枚金币，一共 ${LEVELS.length * 5} 枚，每枚只能拿一次。<br>成绩、金币、皮肤、设置都会自动保存在这台设备上。</div>
       <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
     </div>`);
 }
@@ -1473,6 +1714,22 @@ overlayEl.addEventListener('click', e => {
   else if (act === 'levels') showLevels();
   else if (act === 'level') { if (unlocked(i)) startLevel(i); }
   else if (act === 'resume') resumeGame();
+  else if (act === 'skip') {
+    if (save.coins < SKIP_COST) { SFX.deny(); buzz(); return; }
+    save.coins -= SKIP_COST;
+    const rec = save.levels[sim.index] || {};
+    if (rec.best === undefined) rec.skipped = true;
+    save.levels[sim.index] = rec;
+    persist(); SFX.buy();
+    if (sim.index + 1 >= LEVELS.length) showVictory();
+    else startLevel(sim.index + 1);
+  }
+  else if (act === 'diff') {
+    save.settings.diff = b.dataset.d;
+    applyDiff(); persist(); SFX.ui(); showSettings();
+  }
+  else if (act === 'lpage') showLevels(levelPage + i);
+  else if (act === 'lgo') showLevels(Math.floor(highestUnlocked() / 20));
   else if (act === 'retry') startLevel(sim.index);
   else if (act === 'next') startLevel(Math.min(sim.index + 1, LEVELS.length - 1));
   else if (act === 'home') showMenu();
@@ -1507,6 +1764,7 @@ overlayEl.addEventListener('click', e => {
 /* ==========================================================================
    11. 主循环
    ========================================================================== */
+let levelPage = -1;
 let lastT = 0, acc = 0;
 const STEP = 1 / 60;
 function loop(now) {
@@ -1556,11 +1814,12 @@ window.__NEON = {
   place(tx, ty) {
     const p = sim.p;
     p.x = tx * TS + (TS - P_W) / 2; p.y = (ty + 1) * TS - P_H;
-    p.vx = 0; p.vy = 0; p.dashing = 0; p.dashLeft = 1; p.dashAfter = 0; p.onWall = 0;
+    p.vx = 0; p.vy = 0; p.dashing = 0; p.dashLeft = C.dashCharges; p.dashAfter = 0; p.onWall = 0;
     p.jumpBuf = 0; p.dashBuf = 0; p.coyote = C.coyote;
     sim.dead = false; sim.won = false; sim.started = true;
   },
   step(inp) { stepSim(inp); },
+  cfg() { return { ...C, diff: DIFF.id, par: DIFF.par }; },
   state() {
     const p = sim.p;
     return {
