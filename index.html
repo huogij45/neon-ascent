@@ -120,6 +120,37 @@
   .recLine b{font:600 11.5px/1 ui-monospace,Menlo,monospace;color:#d6f3ff}
   .scroll{max-height:38vh;overflow:auto;margin-top:8px}
   .hintSmall{font-size:11px;color:#67869b;margin-top:14px;line-height:1.7}
+  .lc{display:block;font:600 10px/1 ui-monospace,Menlo,monospace;color:#ffcd76;margin-top:5px;letter-spacing:.06em}
+  .wallet{font:800 13px/1 ui-monospace,Menlo,monospace;color:#ffd479;letter-spacing:.12em;margin:2px 0 12px}
+  .wallet b{color:#fff2c4}
+  .skinGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px}
+  .skin{position:relative;padding:10px 6px 9px;border-radius:11px;cursor:pointer;text-align:center;
+    border:1px solid rgba(110,200,240,.2);background:rgba(14,26,42,.6);color:#dff4ff;
+    transition:border-color .12s ease,box-shadow .12s ease}
+  .skin:hover{border-color:rgba(120,235,255,.5)}
+  .skin.on{border-color:rgba(130,255,220,.75);box-shadow:0 0 16px rgba(90,240,220,.2)}
+  .skin.poor{opacity:.6}
+  .skin .sw{display:block;width:26px;height:26px;border-radius:8px;margin:0 auto 7px;box-shadow:0 0 12px rgba(120,220,255,.35)}
+  .skin .sn{display:block;font-size:12.5px;font-weight:700}
+  .skin .sc{display:block;font:600 10px/1.4 ui-monospace,Menlo,monospace;margin-top:3px;color:#7f9ab0}
+  .skin .sc.ok{color:#9ee8ff}
+  .skin .sc.on{color:#8ff5d0}
+  .skin .sc.buy{color:#ffd479}
+  .skin .sc.no{color:#b4798a}
+  .setRow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:9px 2px;border-bottom:1px dashed rgba(120,170,200,.12)}
+  .setRow .sl{font-size:12.5px;color:#cbe6f5;text-align:left}
+  .setRow .sl i{display:block;font-style:normal;font-size:10.5px;color:#6d8ba0;margin-top:2px}
+  .tgl{min-width:58px;padding:7px 10px;border-radius:9px;cursor:pointer;
+    font:700 11.5px/1 ui-monospace,Menlo,monospace;
+    border:1px solid rgba(120,160,200,.22);background:rgba(10,18,30,.5);color:#8ea7ba}
+  .tgl.on{border-color:rgba(120,245,220,.5);color:#b9ffe9;background:rgba(20,70,70,.45);
+    box-shadow:inset 0 0 12px rgba(80,240,200,.14)}
+  .tgl.danger{border-color:rgba(255,140,170,.35);color:#ffb3c6}
+  .tgl.danger:hover{background:rgba(90,20,35,.5)}
+  .rng{width:132px;accent-color:#5ce6ff;background:transparent}
+  .card.bad{animation:bad .42s cubic-bezier(.36,.07,.19,.97) both}
+  @keyframes bad{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
   @media (max-width:380px){ .brand{font-size:25px} .tbtn{width:58px;height:58px} }
 </style>
 </head>
@@ -178,6 +209,7 @@ const LEVELS = [
     start: [2, 15], goal: [30, 7],
     solids: [[0,16,32,2], [7,14,5,1], [14,12,4,1], [21,10,5,1], [28,8,4,1]],
     spikes: [[11,15,3,'up'], [23,9,2,'up']],
+    coins: [[10,13], [16,11], [23,8]],
     hint: '← → 移动 · Z / 空格 跳跃（松手早跳得低）'
   },
   {
@@ -186,6 +218,7 @@ const LEVELS = [
     start: [1, 15], goal: [30, 12],
     solids: [[0,16,5,2], [8,15,3,1], [17,15,3,1], [24,14,3,1], [30,13,2,1]],
     spikes: [[12,10,4,'down'], [20,10,3,'down']],
+    coins: [[6,14], [15,13], [27,12]],
     hint: 'X / Shift 冲刺 · 落在平台上会补满一次冲刺'
   },
   {
@@ -194,6 +227,7 @@ const LEVELS = [
     start: [13, 15], goal: [13, 2],
     solids: [[0,16,32,2], [10,1,2,15], [15,1,2,15]],
     spikes: [],
+    coins: [[12,9], [14,7], [13,4]],
     hint: '贴墙下滑时按跳跃＝反向蹬墙 · 蹬墙也会补冲刺'
   },
   {
@@ -202,6 +236,7 @@ const LEVELS = [
     start: [1, 15], goal: [27, 12],
     solids: [[0,16,32,2], [3,14,3,1], [9,13,3,1], [15,13,3,1], [21,13,3,1], [26,13,4,1]],
     spikes: [[6,10,2,'down'], [12,10,2,'down'], [18,10,2,'down'], [24,10,2,'down'], [6,15,26,'up']],
+    coins: [[4,13], [16,12], [27,12]],
     hint: '天花板有刺：用横向冲刺代替起跳'
   },
   {
@@ -210,7 +245,53 @@ const LEVELS = [
     start: [1, 15], goal: [24, 1],
     solids: [[0,16,32,2], [0,6,1,10], [4,6,2,10], [4,6,8,1], [14,5,2,1], [17,3,2,1], [20,2,6,1]],
     spikes: [[7,15,25,'up'], [22,2,1,'up']],
+    coins: [[3,13], [7,4], [19,4]],
     hint: '爬出竖井后不要停：经中柱一口气冲到终点'
+  },
+  {
+    name: '回廊', en: 'GALLERY', hue: 205, par: 16,
+    sub: '上上下下的走廊',
+    start: [1, 15], goal: [27, 9],
+    solids: [[0,16,32,2], [3,14,4,1], [9,13,4,1], [15,14,3,1], [20,12,4,1], [26,10,4,1]],
+    spikes: [[7,15,2,'up'], [12,10,3,'down'], [23,15,2,'up']],
+    coins: [[5,13], [10,12], [21,11]],
+    hint: '一次失误就重来：先看清楚再起跳'
+  },
+  {
+    name: '摆渡', en: 'FERRY', hue: 45, par: 18,
+    sub: '脚下没有地面',
+    start: [1, 15], goal: [31, 12],
+    solids: [[0,16,6,2], [8,15,2,1], [14,15,2,1], [20,14,2,1], [26,14,3,1], [30,13,2,1]],
+    spikes: [[10,9,3,'down'], [17,9,3,'down']],
+    coins: [[6,13], [16,13], [24,13]],
+    hint: '掉下去没有底：冲刺用完就立刻落地补满'
+  },
+  {
+    name: '交错', en: 'CROSSFIRE', hue: 305, par: 16,
+    sub: '头顶的天花板会咬人',
+    start: [1, 15], goal: [30, 9],
+    solids: [[0,16,32,2], [3,14,3,1], [9,13,3,1], [15,14,3,1], [20,12,3,1], [25,11,3,1], [29,10,2,1]],
+    spikes: [[5,8,3,'down'], [11,8,3,'down'], [17,9,3,'down'], [23,8,3,'down'], [27,15,4,'up']],
+    coins: [[4,13], [16,13], [26,10]],
+    hint: '天花板压得低：短跳比高跳更安全'
+  },
+  {
+    name: '锯齿', en: 'SAWTOOTH', hue: 105, par: 15,
+    sub: '平台在刀尖上排队',
+    start: [1, 15], goal: [28, 11],
+    solids: [[0,16,32,2], [2,13,3,1], [7,12,3,1], [12,13,3,1], [17,12,3,1], [22,13,3,1], [27,12,3,1]],
+    spikes: [[6,15,26,'up']],
+    coins: [[3,12], [9,11], [24,12]],
+    hint: '整片地面都是刺：每一步都落在窄台上'
+  },
+  {
+    name: '终焉', en: 'APEX', hue: 350, par: 22,
+    sub: '九段台阶，一段都不能错',
+    start: [1, 15], goal: [30, 8],
+    solids: [[0,16,32,2], [2,14,3,1], [7,13,3,1], [12,12,3,1], [18,12,3,1], [24,11,3,1], [29,9,3,1]],
+    spikes: [[5,15,2,'up'], [10,15,2,'up'], [16,15,2,'up'], [22,15,2,'up'], [27,15,2,'up'], [14,7,3,'down']],
+    coins: [[4,13], [19,11], [30,7]],
+    hint: '最后一程：把跳跃、冲刺、落点全用上'
   }
 ];
 /*LEVELS_END*/
@@ -240,23 +321,55 @@ const isTouch = () => (window.matchMedia ? matchMedia('(pointer: coarse)').match
 /* ==========================================================================
    3. 存档
    ========================================================================== */
-const SAVE_KEY = 'neon-ascent.save.v1';
-let save = { levels: {}, deaths: 0, clears: 0, muted: false };
-try {
-  const raw = localStorage.getItem(SAVE_KEY);
-  if (raw) {
+const SAVE_KEY = 'neon-ascent.save.v2';
+const OLD_KEY = 'neon-ascent.save.v1';
+const SKINS = [
+  { id:'cyber',  name:'霓虹', cost:0,  body:['#dcfeff','#63e6ff','#1ea6d8'], glow:'rgba(110,240,255,.9)',  trail:'rgba(90,220,255,1)' },
+  { id:'ember',  name:'余烬', cost:4,  body:['#ffe8c8','#ff9a4d','#b83a12'], glow:'rgba(255,150,80,.9)',   trail:'rgba(255,150,80,1)' },
+  { id:'jade',   name:'翡翠', cost:8,  body:['#dcffe9','#4ce89a','#0f8a58'], glow:'rgba(80,240,160,.9)',   trail:'rgba(80,240,160,1)' },
+  { id:'violet', name:'紫电', cost:12, body:['#efe0ff','#a97bff','#5b2fb0'], glow:'rgba(180,120,255,.9)',  trail:'rgba(180,140,255,1)' },
+  { id:'rose',   name:'蔷薇', cost:18, body:['#ffe4f2','#ff6fb3','#b32569'], glow:'rgba(255,120,190,.9)',  trail:'rgba(255,120,190,1)' },
+  { id:'mono',   name:'白噪', cost:25, body:['#ffffff','#c9d6e2','#6d8399'], glow:'rgba(235,248,255,.9)',  trail:'rgba(225,240,255,1)' }
+];
+const GHOST_PAL = { body:['#d6e4ff','#8fa8ff','#3b4d9a'], glow:'rgba(150,180,240,.7)' };
+function newSave() {
+  return {
+    v: 2, levels: {}, deaths: 0, clears: 0, coins: 0,
+    owned: ['cyber'], skin: 'cyber',
+    settings: { sfx: true, vol: 0.8, shake: true, ghost: true, fx: true, timer: true }
+  };
+}
+let save = newSave();
+(function loadSave() {
+  let raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(OLD_KEY); } catch (e) { return; }
+  if (!raw) return;
+  try {
     const p = JSON.parse(raw);
-    if (p && typeof p === 'object') save = Object.assign(save, p);
-  }
-} catch (e) { /* 隐私模式忽略 */ }
+    if (!p || typeof p !== 'object') return;
+    const d = newSave();
+    d.levels = p.levels || {};
+    d.deaths = p.deaths || 0;
+    d.clears = p.clears || 0;
+    if (typeof p.coins === 'number') d.coins = p.coins;
+    if (Array.isArray(p.owned) && p.owned.length) d.owned = p.owned;
+    if (typeof p.skin === 'string') d.skin = p.skin;
+    if (p.settings) Object.assign(d.settings, p.settings);
+    else if (p.muted !== undefined) d.settings.sfx = !p.muted;   // v1 → v2 迁移
+    save = d;
+  } catch (e) {}
+  if (!save.owned.includes(save.skin)) save.skin = 'cyber';
+})();
 function persist() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
 }
+const skinOf = id => SKINS.find(s => s.id === id) || SKINS[0];
+const curSkin = () => skinOf(save.skin);
 
 /* ==========================================================================
    4. 音效（WebAudio 合成，无外部资源）
    ========================================================================== */
-let actx = null, muted = !!save.muted;
+let actx = null, muted = !save.settings.sfx;
 function audioInit() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   try {
@@ -266,6 +379,8 @@ function audioInit() {
 }
 function tone(f0, f1, dur, type, vol) {
   if (!actx || muted) return;
+  vol *= (save.settings.vol === undefined ? 0.8 : save.settings.vol);
+  if (vol <= 0.0006) return;
   try {
     const t = actx.currentTime;
     const o = actx.createOscillator(), g = actx.createGain();
@@ -290,7 +405,10 @@ const SFX = {
     setTimeout(() => tone(784, 784, 0.14, 'triangle', 0.06), 200);
     setTimeout(() => tone(1046, 1046, 0.22, 'triangle', 0.07), 300);
   },
-  ui() { tone(600, 700, 0.05, 'triangle', 0.03); }
+  ui() { tone(600, 700, 0.05, 'triangle', 0.03); },
+  coin() { tone(880, 1320, 0.09, 'triangle', 0.05); setTimeout(() => tone(1320, 1760, 0.08, 'triangle', 0.04), 70); },
+  buy() { tone(520, 780, 0.12, 'square', 0.05); setTimeout(() => tone(1040, 1040, 0.14, 'triangle', 0.05), 110); },
+  deny() { tone(220, 140, 0.14, 'square', 0.045); }
 };
 
 /* ==========================================================================
@@ -326,7 +444,7 @@ const sim = {
   p: null, prev: { jump: false, dash: false },
   frames: 0, started: false, dead: false, deathT: 0, won: false, winT: 0, clearShL: false,
   deaths: 0, shake: 0, flash: 0, freeze: 0,
-  rec: [], particles: [], dust: [], trail: [],
+  rec: [], particles: [], dust: [], trail: [], coins: [],
   ghostFrame: 0
 };
 let state = 'menu';   // menu | levels | play | pause | clear | victory
@@ -482,6 +600,27 @@ function respawn() {
   sim.dead = false; sim.deathT = 0;
   sim.prev = { jump: false, dash: false };
 }
+/* ---------- 金币 ---------- */
+function coinTaken(ci) {
+  const rec = save.levels[sim.index];
+  return !!(rec && rec.coins && rec.coins.indexOf(ci) >= 0);
+}
+function buildCoins() {
+  sim.coins = (sim.def.coins || []).map((c, i) => ({ x: c[0], y: c[1], i, got: coinTaken(i) }));
+}
+function grabCoin(c) {
+  const rec = save.levels[sim.index] || {};
+  const cs = rec.coins || [];
+  if (cs.indexOf(c.i) < 0) cs.push(c.i);
+  rec.coins = cs;
+  save.levels[sim.index] = rec;
+  save.coins++;
+  persist();
+  SFX.coin();
+  const cx = c.x * TS + TS / 2, cy = c.y * TS + TS / 2;
+  spawn(cx, cy, 12, { sp: 3, size: 2.2, life: 26, col: '#ffd479', g: 0.02 });
+  spawn(cx, cy, 5, { sp: 1.6, size: 2.6, life: 22, col: '#fff6d0', g: 0.01 });
+}
 function startLevel(i) {
   sim.index = i;
   sim.def = LEVELS[i];
@@ -494,6 +633,7 @@ function startLevel(i) {
   sim.rec = []; sim.particles.length = 0; sim.shake = 0; sim.flash = 0; sim.freeze = 0;
   sim.clearShL = false;
   sim.ghostFrame = 0;
+  buildCoins();
   initDust();
   state = 'play';
   hideOverlay();
@@ -537,6 +677,7 @@ function hazardHit(x, y, w, h) {
 
 /* ---------- 粒子 ---------- */
 function spawn(x, y, n, opt) {
+  if (!save.settings.fx) return;
   opt = opt || {};
   for (let i = 0; i < n; i++) {
     if (sim.particles.length > 260) break;
@@ -570,7 +711,7 @@ function die() {
   if (sim.dead || sim.won) return;
   sim.dead = true; sim.deathT = 0; sim.deaths++;
   save.deaths++; persist();
-  sim.shake = 11; sim.flash = 0.9;
+  if (save.settings.shake) sim.shake = 11; sim.flash = 0.9;
   const p = sim.p;
   spawn(p.x + P_W / 2, p.y + P_H / 2, 26, { sp: 4.2, size: 2.6, life: 34, col: '#ff86c8', g: 0.14 });
   spawn(p.x + P_W / 2, p.y + P_H / 2, 12, { sp: 2.4, size: 3.4, life: 26, col: '#ffffff', g: 0.1 });
@@ -578,7 +719,7 @@ function die() {
 }
 function win() {
   if (sim.won || sim.dead) return;
-  sim.won = true; sim.winT = 0; sim.shake = 4; sim.flash = 0.5;
+  sim.won = true; sim.winT = 0; if (save.settings.shake) sim.shake = 4; sim.flash = 0.5;
   const t = sim.frames / 60;
   const gx = (sim.def.goal[0] + 0.5) * TS, gy = (sim.def.goal[1] + 0.5) * TS;
   spawn(gx, gy, 34, { sp: 3.4, size: 2.4, life: 42, col: '#9ef8ff', g: 0.05 });
@@ -649,7 +790,7 @@ function stepSim(inp) {
     p.vx = dx * C.dashV; p.vy = dy * C.dashV;
     p.dashDX = dx; p.dashDY = dy;
     p.sx = 1.28; p.sy = 0.76;
-    sim.shake = Math.max(sim.shake, 3.5);
+    if (save.settings.shake) sim.shake = Math.max(sim.shake, 3.5);
     spawn(p.x + P_W / 2, p.y + P_H / 2, 12, {
       sp: 3.6, size: 2.2, life: 22, col: '#ff9ef0', g: 0.02,
       ang: Math.atan2(-dy, -dx), spread: 1.0
@@ -786,6 +927,14 @@ function stepSim(inp) {
   if (hazardHit(p.x, p.y, P_W, P_H)) { die(); return; }
   if (p.y > CH + 40) { die(); return; }
 
+  // ---- 金币 ----
+  const pcx = p.x + P_W / 2, pcy = p.y + P_H / 2;
+  for (const c of sim.coins) {
+    if (c.got) continue;
+    const cx = c.x * TS + TS / 2, cy = c.y * TS + TS / 2;
+    if (Math.abs(pcx - cx) < 10 && Math.abs(pcy - cy) < 11) grabCoin(c);
+  }
+
   // ---- 终点 ----
   const gl = sim.def.goal;
   const gx = gl[0] * TS + 2, gy = gl[1] * TS + 2, gw = TS - 4, gh = TS - 4;
@@ -801,18 +950,19 @@ function stepSim(inp) {
 /* ==========================================================================
    8. 渲染
    ========================================================================== */
-function drawPlayerAt(g, cx, cy, alpha, tint, sx, sy) {
+function drawPlayerAt(g, cx, cy, alpha, pal, sx, sy) {
+  const P = pal || curSkin();
   const w = P_W - 2, h = P_H;
   g.save();
   g.globalAlpha = alpha;
   g.translate(cx, cy);
   g.scale(sx || 1, sy || 1);
-  g.shadowColor = tint || 'rgba(110,240,255,.9)';
+  g.shadowColor = P.glow || 'rgba(110,240,255,.9)';
   g.shadowBlur = 16;
   const grd = g.createLinearGradient(0, -h / 2, 0, h / 2);
-  grd.addColorStop(0, tint ? tint : '#dcfeff');
-  grd.addColorStop(0.55, '#63e6ff');
-  grd.addColorStop(1, '#1ea6d8');
+  grd.addColorStop(0, P.body[0]);
+  grd.addColorStop(0.55, P.body[1]);
+  grd.addColorStop(1, P.body[2]);
   g.fillStyle = grd;
   roundRect(g, -w / 2, -h / 2, w, h, 4);
   g.fill();
@@ -824,6 +974,7 @@ function drawPlayerAt(g, cx, cy, alpha, tint, sx, sy) {
   g.restore();
 }
 function drawGhost(g) {
+  if (!save.settings.ghost) return;
   const rec = save.levels[sim.index];
   if (!rec || !rec.ghost || !rec.ghost.length) return;
   const gh = rec.ghost, f = sim.frames;
@@ -837,7 +988,7 @@ function drawGhost(g) {
   const k = b[0] > a[0] ? clamp((f - a[0]) / (b[0] - a[0]), 0, 1) : 0;
   const x = a[1] + (b[1] - a[1]) * k + P_W / 2;
   const y = a[2] + (b[2] - a[2]) * k + P_H / 2;
-  drawPlayerAt(g, x, y, 0.30, 'rgba(160,190,255,1)', 1, 1);
+  drawPlayerAt(g, x, y, 0.30, GHOST_PAL, 1, 1);
 }
 function render(now) {
   const g = ctx;
@@ -877,13 +1028,29 @@ function render(now) {
   g.beginPath(); g.arc(0, 0, 8 + pulse * 3, 0, 6.283); g.stroke();
   g.restore();
 
+  // 金币
+  for (const c of sim.coins) {
+    if (c.got) continue;
+    const cx = c.x * TS + TS / 2, cy = c.y * TS + TS / 2 + Math.sin(now * 0.003 + c.i) * 1.8;
+    const sc = 0.75 + Math.abs(Math.sin(now * 0.004 + c.i)) * 0.35;
+    g.save();
+    g.translate(cx, cy);
+    g.scale(sc, 1);
+    g.shadowColor = 'rgba(255,205,100,.95)'; g.shadowBlur = 12;
+    const cg = g.createLinearGradient(0, -6, 0, 6);
+    cg.addColorStop(0, '#fff3c4'); cg.addColorStop(0.5, '#ffd479'); cg.addColorStop(1, '#e08b1c');
+    g.fillStyle = cg;
+    g.beginPath(); g.moveTo(0, -6); g.lineTo(4.6, 0); g.lineTo(0, 6); g.lineTo(-4.6, 0); g.closePath(); g.fill();
+    g.restore();
+  }
+
   // 残影
   drawGhost(g);
 
   // 拖影
   for (const tr of sim.trail) {
     const a = tr.life / 18;
-    drawPlayerAt(g, tr.x + P_W / 2, tr.y + P_H / 2, a * 0.28, 'rgba(90,220,255,1)', 1, 1);
+    drawPlayerAt(g, tr.x + P_W / 2, tr.y + P_H / 2, a * 0.28, curSkin(), 1, 1);
   }
 
   // 粒子（后层）
@@ -939,7 +1106,7 @@ function render(now) {
   }
 
   // HUD
-  if (state !== 'menu' && state !== 'levels') drawHUD(g, hue);
+  if (state !== 'menu' && state !== 'levels' && state !== 'skins' && state !== 'settings') drawHUD(g, hue);
 
   // 死亡闪白
   if (sim.flash > 0) {
@@ -962,12 +1129,24 @@ function drawHUD(g, hue) {
   g.fillStyle = 'rgba(175,220,240,.6)';
   g.fillText('ROOM ' + String(idx + 1).padStart(2, '0') + ' / ' + String(LEVELS.length).padStart(2, '0'), 14, 20);
 
-  const tm = fmtTime(sim.frames / 60);
-  g.font = '800 22px ui-monospace, Menlo, monospace';
-  g.fillStyle = '#eafdff';
-  g.shadowColor = `hsla(${hue},100%,65%,.65)`; g.shadowBlur = 12;
-  g.fillText(tm, 13, 45);
+  if (save.settings.timer) {
+    const tm = fmtTime(sim.frames / 60);
+    g.font = '800 22px ui-monospace, Menlo, monospace';
+    g.fillStyle = '#eafdff';
+    g.shadowColor = `hsla(${hue},100%,65%,.65)`; g.shadowBlur = 12;
+    g.fillText(tm, 13, 45);
+    g.shadowBlur = 0;
+  }
+
+  // 金币：本房间 / 钱包
+  const got = sim.coins.filter(c => c.got).length;
+  g.textAlign = 'center';
+  g.font = '800 12px ui-monospace, Menlo, monospace';
+  g.fillStyle = '#ffd479';
+  g.shadowColor = 'rgba(255,190,80,.7)'; g.shadowBlur = 10;
+  g.fillText('◈ ' + got + '/' + sim.coins.length + '   ◈ ' + save.coins, CW / 2, 20);
   g.shadowBlur = 0;
+  g.textAlign = 'left';
 
   g.textAlign = 'right';
   g.font = '700 10px ui-monospace, Menlo, monospace';
@@ -1093,14 +1272,14 @@ function showMenu() {
     <div class="card">
       <div class="brand">NEON<span>ASCENT</span></div>
       <div class="cn">霓虹之巅</div>
-      <p class="tag">5 个房间 · 一次失误就重来<br>每个房间都会留下你的最佳残影</p>
+      <p class="tag">${LEVELS.length} 个房间 · 一次失误就重来<br>收集金币，解锁机体涂装</p>
       <button class="btn primary" data-act="play">${n >= LEVELS.length ? '再次登顶' : '开始攀爬'}</button>
       <button class="btn" data-act="levels">选择房间</button>
       <div class="row">
-        <button class="btn ghost" data-act="mute">${muted ? '音效：关' : '音效：开'}</button>
-        <button class="btn ghost" data-act="reset">清除记录</button>
+        <button class="btn ghost" data-act="skins">机体 · ${curSkin().name}</button>
+        <button class="btn ghost" data-act="settings">设置</button>
       </div>
-      <div class="meta">总死亡 <b>${save.deaths}</b> · 已通过 <b>${n}/${LEVELS.length}</b></div>
+      <div class="meta">◈ 金币 <b>${save.coins}</b> · 已通过 <b>${n}/${LEVELS.length}</b> · 死亡 <b>${save.deaths}</b></div>
       <div class="keys">
         ${isTouch()
           ? '<b>◀ ▶</b> 移动 · <b>▲</b> 跳跃 · <b>⚡</b> 冲刺<br>长按跳跃可跳得更高'
@@ -1118,6 +1297,7 @@ function showLevels() {
       <span class="no">ROOM ${String(i + 1).padStart(2, '0')} ${ok ? '' : '· 未解锁'}</span>
       <span class="nm">${l.name}</span>
       <span class="tm"><span class="dot ${m}"></span>${rec.best !== undefined ? fmtTime(rec.best) : '—'} <span style="opacity:.45">/ 目标 ${fmtTime(l.par)}</span></span>
+      <span class="lc">◈ ${(rec.coins || []).length}/${(l.coins || []).length}</span>
     </button>`;
   }).join('');
   overlayOn(`
@@ -1125,7 +1305,8 @@ function showLevels() {
       <div class="brand" style="font-size:22px">SELECT ROOM</div>
       <div class="cn" style="margin:8px 0 16px">选择房间</div>
       <div class="lvGrid">${cards}</div>
-      <div class="hintSmall">通关一个房间才会解锁下一个。黄金 = 低于目标时间。</div>
+      <div class="meta" style="margin-top:12px">◈ 金币 <b>${save.coins}</b></div>
+      <div class="hintSmall">通关一个房间才会解锁下一个 · 黄金 = 低于目标时间<br>每间房藏着 3 枚金币，拿到手里才算数</div>
       <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
     </div>`);
 }
@@ -1160,7 +1341,7 @@ function showClear() {
       <div class="brand" style="font-size:24px">${def.name}</div>
       <div class="cn" style="margin:6px 0 6px">${def.en}</div>
       <div class="bigtime">${fmtTime(t)}</div>
-      <div class="sub">目标 ${fmtTime(def.par)} · 死亡 ${sim.deaths} 次</div>
+      <div class="sub">目标 ${fmtTime(def.par)} · 死亡 ${sim.deaths} 次 · 本房金币 ${sim.coins.filter(c => c.got).length}/${sim.coins.length}</div>
       <div class="medal ${m}">${MEDAL_EN[m]}${sim.newPB ? ' · 新纪录' : ''}</div>
       <div class="clearrow">
         <div class="clearcell">最佳<b>${fmtTime(rec.best)}</b></div>
@@ -1189,19 +1370,87 @@ function showVictory() {
       <div class="brand" style="font-size:26px">ASCENDED</div>
       <div class="cn" style="margin:8px 0 4px">你已登顶</div>
       <div class="bigtime" style="font-size:26px">${fmtTime(total)}</div>
-      <div class="sub">五段最佳成绩之和 · 累计死亡 ${save.deaths}</div>
+      <div class="sub">${LEVELS.length} 段最佳成绩之和 · 金币 ${save.coins} · 累计死亡 ${save.deaths}</div>
       <div class="scroll">${rows}</div>
       <div class="hintSmall">想更快？打开残影，追着自己跑。</div>
       <button class="btn primary" data-act="levels">回到选关</button>
       <button class="btn ghost" data-act="home">标题</button>
     </div>`);
 }
+function showSkins() {
+  state = 'skins';
+  const cards = SKINS.map((s, i) => {
+    const owned = save.owned.indexOf(s.id) >= 0;
+    const on = save.skin === s.id;
+    const afford = save.coins >= s.cost;
+    const st = on ? '使用中' : owned ? '装备' : '◈ ' + s.cost;
+    return `<button class="skin ${on ? 'on' : ''} ${!owned && !afford ? 'poor' : ''}" data-act="skin" data-i="${i}">
+      <span class="sw" style="background:linear-gradient(160deg,${s.body[0]},${s.body[1]},${s.body[2]})"></span>
+      <span class="sn">${s.name}</span>
+      <span class="sc ${on ? 'on' : owned ? 'ok' : afford ? 'buy' : 'no'}">${st}</span>
+    </button>`;
+  }).join('');
+  overlayOn(`
+    <div class="card">
+      <div class="brand" style="font-size:22px">SKINS</div>
+      <div class="cn" style="margin:8px 0 10px">机 体 涂 装</div>
+      <div class="wallet">◈ <b>${save.coins}</b></div>
+      <div class="skinGrid">${cards}</div>
+      <div class="hintSmall">金币在关卡里收：每间 3 枚，拿了就不再出现。<br>买下即装备，涂装只影响外观，不改手感。</div>
+      <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
+    </div>`);
+}
+function showSettings() {
+  state = 'settings';
+  const st = save.settings;
+  const row = (k, label, tip) => `<div class="setRow">
+      <span class="sl">${label}<i>${tip || ''}</i></span>
+      <button class="tgl ${st[k] ? 'on' : ''}" data-act="opt" data-k="${k}">${st[k] ? '开' : '关'}</button>
+    </div>`;
+  overlayOn(`
+    <div class="card">
+      <div class="brand" style="font-size:22px">SETTINGS</div>
+      <div class="cn" style="margin:8px 0 12px">设 置</div>
+      ${row('sfx', '音效', '按键与事件音')}
+      <div class="setRow">
+        <span class="sl">音量<i id="volv">${Math.round(st.vol * 100)}%</i></span>
+        <input class="rng" id="vol" type="range" min="0" max="100" value="${Math.round(st.vol * 100)}">
+      </div>
+      ${row('shake', '屏幕震动', '死亡与冲刺的抖动')}
+      ${row('ghost', '最佳残影', '用自己最快的路线陪跑')}
+      ${row('fx', '粒子特效', '受伤、落地、拾取的火花')}
+      ${row('timer', '显示计时', '关掉更干净，成绩照旧记录')}
+      <div class="setRow">
+        <span class="sl">存档<i>金币 ${save.coins} · 已通过 ${clearedCount()} / ${LEVELS.length}</i></span>
+        <button class="tgl danger" data-act="reset">清空</button>
+      </div>
+      <div class="hintSmall">成绩、金币、皮肤、设置都会自动保存在这台设备上。</div>
+      <button class="btn ghost" data-act="home" style="margin-top:14px">返回</button>
+    </div>`);
+}
 function toggleMute() {
-  muted = !muted; save.muted = muted; persist();
+  save.settings.sfx = !save.settings.sfx;
+  muted = !save.settings.sfx;
+  persist();
   if (state === 'menu') showMenu();
+  else if (state === 'settings') showSettings();
   SFX.ui();
 }
+function buzz() {
+  const card = overlayEl.querySelector('.card');
+  if (!card) return;
+  card.classList.add('bad');
+  setTimeout(() => card.classList.remove('bad'), 420);
+}
 
+overlayEl.addEventListener('input', e => {
+  if (e.target && e.target.id === 'vol') {
+    save.settings.vol = (+e.target.value) / 100;
+    persist();
+    const lv = document.getElementById('volv');
+    if (lv) lv.textContent = Math.round(save.settings.vol * 100) + '%';
+  }
+});
 overlayEl.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
@@ -1220,10 +1469,28 @@ overlayEl.addEventListener('click', e => {
   else if (act === 'retry') startLevel(sim.index);
   else if (act === 'next') startLevel(Math.min(sim.index + 1, LEVELS.length - 1));
   else if (act === 'home') showMenu();
+  else if (act === 'skins') showSkins();
+  else if (act === 'settings') showSettings();
+  else if (act === 'skin') {
+    const sk = SKINS[i];
+    if (!sk) return;
+    if (save.owned.indexOf(sk.id) >= 0) {
+      save.skin = sk.id; persist(); SFX.ui(); showSkins();
+    } else if (save.coins >= sk.cost) {
+      save.coins -= sk.cost; save.owned.push(sk.id); save.skin = sk.id;
+      persist(); SFX.buy(); showSkins();
+    } else { SFX.deny(); buzz(); }
+  }
+  else if (act === 'opt') {
+    const k = b.dataset.k;
+    save.settings[k] = !save.settings[k];
+    if (k === 'sfx') muted = !save.settings.sfx;
+    persist(); SFX.ui(); showSettings();
+  }
   else if (act === 'mute') toggleMute();
   else if (act === 'reset') {
-    if (confirm('清除所有最佳成绩与残影？')) {
-      save = { levels: {}, deaths: 0, clears: 0, muted: muted };
+    if (confirm('清空全部存档？金币、皮肤、成绩都会重置，且无法恢复。')) {
+      save = newSave(); muted = !save.settings.sfx;
       persist(); showMenu();
     }
   }
@@ -1245,7 +1512,7 @@ function loop(now) {
     if (guard >= 5) acc = 0;
   } else {
     acc = 0;
-    if (state === 'menu' || state === 'levels' || state === 'clear' || state === 'victory' || state === 'pause') {
+    if (state === 'menu' || state === 'levels' || state === 'clear' || state === 'victory' || state === 'pause' || state === 'skins' || state === 'settings') {
       // 覆盖层下的背景保持轻微流动
       updateParticles();
       if (sim.shake > 0) sim.shake *= 0.86;
