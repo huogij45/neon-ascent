@@ -45,7 +45,7 @@
   <text x="600" y="196" text-anchor="middle" font-family="ui-monospace, monospace"
         font-size="21" letter-spacing="16" fill="#8fb6cc">霓 虹 之 巅</text>
   <text x="600" y="246" text-anchor="middle" font-family="ui-monospace, monospace"
-        font-size="16" letter-spacing="4" fill="#5d8298">5 ROOMS · NO CHECKPOINTS · ONE HTML FILE</text>
+        font-size="16" letter-spacing="4" fill="#5d8298">1000 ROOMS · 4 DIFFICULTIES · 21 SKINS</text>
   <line x1="470" y1="272" x2="730" y2="272" stroke="#1e4d63" stroke-width="1"/>
 
   <!-- 场景：地面 -->
